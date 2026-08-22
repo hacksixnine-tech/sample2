@@ -1,0 +1,65 @@
+services:
+  phantom-db:
+    image: postgis/postgis:16-3.4
+    container_name: phantom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-phantom}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-phantom_dev_secure_password_2026}
+      APP_DB_USER: ${APP_DB_USER:-phantom_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-phantom_app_secure_password_2026}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - phantom_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-phantom}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - phantom-network
+
+  phantom-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: phantom-backend
+    restart: unless-stopped
+    depends_on:
+      phantom-db:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      APP_DEBUG: "true"
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      POSTGRES_HOST: phantom-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: phantom
+      POSTGRES_USER: phantom_app
+      POSTGRES_PASSWORD: phantom_app_secure_password_2026
+      DATABASE_URL: postgresql+asyncpg://phantom_app:phantom_app_secure_password_2026@phantom-db:5432/phantom
+      DATABASE_URL_SYNC: postgresql://phantom_app:phantom_app_secure_password_2026@phantom-db:5432/phantom
+      SECRET_KEY: phantom_dev_secret_key_super_secure_for_hackathon_2026
+      AI_WORKER_API_KEY: phantom_ai_worker_dev_key_2026
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - phantom-network
+
+volumes:
+  phantom_pgdata:
+
+networks:
+  phantom-network:
+    name: phantom-network

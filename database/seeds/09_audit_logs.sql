@@ -1,0 +1,13 @@
+-- ==============================================================================
+-- PHANTOM SEED 09: Audit Logs (Demo Trail)
+-- ==============================================================================
+
+INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, ip_address, user_agent, details, metadata) VALUES
+('d0000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'LOGIN', 'USER', '30000000-0000-0000-0000-000000000001', '192.168.1.10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PHANTOM-Command/1.0', 'System Admin login via secure 2FA workstation', '{"auth_method": "OAUTH2_2FA"}'::jsonb),
+('d0000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', 'LOGIN', 'USER', '30000000-0000-0000-0000-000000000002', '192.168.1.25', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0', 'DSP Ahmedabad logged into Command Portal', '{"auth_method": "SMART_CARD"}'::jsonb),
+('d0000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000002', 'UPDATE_WATCHLIST', 'WATCHLIST_ENTRY', '71000000-0000-0000-0000-000000000001', '192.168.1.25', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0', 'Enrolled Stolen Fortuner GJ01AB1234 into Statewide Hotlist', '{"fir": "FIR-AMD-CRIME-2026-8812"}'::jsonb),
+('d0000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000002', 'ACKNOWLEDGE_ALERT', 'ALERT', 'a0000000-0000-0000-0000-000000000001', '192.168.1.25', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0', 'Acknowledged critical alert ALR-2026-0821-001 for vehicle GJ01AB1234', '{"dispatch": "CH-0-EAGLE-1"}'::jsonb),
+('d0000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000002', 'CREATE_INCIDENT', 'INCIDENT', 'b0000000-0000-0000-0000-000000000001', '192.168.1.25', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0', 'Created investigation incident dossier INC-2026-0821-9901', '{"assigned_team": "Quick Response Team 4"}'::jsonb),
+('d0000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000004', 'SEARCH_VEHICLE', 'VEHICLE', '60000000-0000-0000-0000-000000000001', '192.168.2.14', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PHANTOM-Investigator/1.0', 'Executed cross-camera trajectory tracking query for plate GJ01AB1234', '{"sightings_returned": 5}'::jsonb),
+('d0000000-0000-0000-0000-000000000007', '30000000-0000-0000-0000-000000000004', 'VIEW_EVIDENCE', 'EVIDENCE', 'c0000000-0000-0000-0000-000000000001', '192.168.2.14', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PHANTOM-Investigator/1.0', 'Streamed forensic evidence frame snapshot for case dossier', '{"storage_key": "2026/08/21/c1009/frame_28004.jpg"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;

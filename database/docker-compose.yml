@@ -1,0 +1,25 @@
+services:
+  phantom-db:
+    image: postgis/postgis:16-3.4
+    container_name: phantom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-phantom}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-phantom_dev_secure_password_2026}
+      APP_DB_USER: ${APP_DB_USER:-phantom_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-phantom_app_secure_password_2026}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - phantom_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-phantom}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  phantom_pgdata:
+    name: phantom_pgdata
