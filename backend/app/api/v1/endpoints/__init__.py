@@ -1,4 +1,5 @@
 from app.api.v1.endpoints.departments import router as departments_router
+from app.api.v1.endpoints.districts import router as districts_router
 from app.api.v1.endpoints.locations import router as locations_router
 from app.api.v1.endpoints.cameras import router as cameras_router
 from app.api.v1.endpoints.streams import router as streams_router
@@ -23,6 +24,7 @@ audit_router = APIRouter(prefix="/audit", tags=["Governance & Audit Trails"])
 
 __all__ = [
     "departments_router",
+    "districts_router",
     "locations_router",
     "cameras_router",
     "streams_router",

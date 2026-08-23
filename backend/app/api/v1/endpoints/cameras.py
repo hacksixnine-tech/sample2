@@ -17,10 +17,14 @@ from app.schemas.camera import (
 )
 from app.services.camera_service import CameraService
 from app.services.bulk_import_service import BulkCameraImportService
+from app.services.stream_gateway_service import StreamGatewayService
+from app.services.source_discovery_service import SourceDiscoveryService
 
 router = APIRouter(prefix="/cameras", tags=["CCTV Cameras & Registry"])
 camera_service = CameraService()
 bulk_import_service = BulkCameraImportService()
+stream_gateway_service = StreamGatewayService()
+source_discovery_service = SourceDiscoveryService()
 
 
 @router.get(
@@ -45,6 +49,87 @@ async def get_nearby_cameras(
 
 
 @router.get(
+    "/bbox",
+    response_model=ApiResponse[List[Dict[str, Any]]],
+    summary="Find Cameras in Bounding Box (Viewport Query)",
+    description="PostGIS spatial envelope query returning all cameras visible in the client map viewport.",
+)
+async def get_cameras_in_bbox(
+    request: Request,
+    min_lat: float = Query(..., ge=-90.0, le=90.0),
+    min_lon: float = Query(..., ge=-180.0, le=180.0),
+    max_lat: float = Query(..., ge=-90.0, le=90.0),
+    max_lon: float = Query(..., ge=-180.0, le=180.0),
+    department_id: Optional[uuid.UUID] = Query(None),
+    district: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(500, ge=1, le=5000),
+    db: AsyncSession = Depends(get_db),
+) -> ApiResponse[List[Dict[str, Any]]]:
+    cameras = await camera_service.find_cameras_in_bbox(
+        db,
+        min_lat=min_lat,
+        min_lon=min_lon,
+        max_lat=max_lat,
+        max_lon=max_lon,
+        department_id=department_id,
+        district=district,
+        status=status,
+        limit=limit,
+    )
+    req_id = getattr(request.state, "request_id", None)
+    return ApiResponse(success=True, data=cameras, request_id=req_id)
+
+
+@router.get(
+    "/corridor",
+    response_model=ApiResponse[List[Dict[str, Any]]],
+    summary="Find Cameras along Route Corridor",
+    description="PostGIS route buffer query returning cameras along a trajectory line (e.g. suspect route or transit corridor).",
+)
+async def get_cameras_in_corridor(
+    request: Request,
+    start_lat: float = Query(..., ge=-90.0, le=90.0),
+    start_lon: float = Query(..., ge=-180.0, le=180.0),
+    end_lat: float = Query(..., ge=-90.0, le=90.0),
+    end_lon: float = Query(..., ge=-180.0, le=180.0),
+    buffer_meters: float = Query(1000.0, gt=0, le=50000.0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db),
+) -> ApiResponse[List[Dict[str, Any]]]:
+    cameras = await camera_service.find_cameras_in_corridor(
+        db,
+        start_lat=start_lat,
+        start_lon=start_lon,
+        end_lat=end_lat,
+        end_lon=end_lon,
+        buffer_meters=buffer_meters,
+        limit=limit,
+    )
+    req_id = getattr(request.state, "request_id", None)
+    return ApiResponse(success=True, data=cameras, request_id=req_id)
+
+
+@router.get(
+    "/coverage-gaps",
+    response_model=ApiResponse[Dict[str, Any]],
+    summary="Surveillance Density & Coverage Gap Analysis",
+    description="Analyzes statewide camera spatial density, identifies low-coverage clusters and offline camera hotspots.",
+)
+async def get_coverage_gaps(
+    request: Request,
+    district: Optional[str] = Query(None),
+    department_id: Optional[uuid.UUID] = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> ApiResponse[Dict[str, Any]]:
+    analysis = await camera_service.analyze_coverage_gaps(
+        db, district=district, department_id=department_id
+    )
+    req_id = getattr(request.state, "request_id", None)
+    return ApiResponse(success=True, data=analysis, request_id=req_id)
+
+
+@router.get(
     "/coverage",
     response_model=ApiResponse[CameraCoverageResponse],
     summary="Statewide Camera Coverage Statistics",
@@ -57,6 +142,7 @@ async def get_camera_coverage(
     coverage = await camera_service.get_coverage_metrics(db)
     req_id = getattr(request.state, "request_id", None)
     return ApiResponse(success=True, data=coverage, request_id=req_id)
+
 
 
 @router.get(
@@ -271,3 +357,63 @@ async def delete_camera(
         data={"message": f"Camera {camera_id} decommissioned successfully."},
         request_id=req_id,
     )
+
+
+@router.post(
+    "/sync",
+    response_model=ApiResponse[Dict[str, Any]],
+    summary="Synchronize Cameras from External CCTV Source",
+    description="Fetches the live catalog from live.corp8.cloud and returns normalized camera records ready for live ingest.",
+)
+async def sync_cameras(
+    request: Request,
+    source_url: str = Query("https://live.corp8.cloud", description="External CCTV source base URL"),
+) -> ApiResponse[Dict[str, Any]]:
+    from app.adapters.corp8_source_adapter import Corp8SourceAdapter
+    adapter = Corp8SourceAdapter()
+    discovery = await adapter.discover_cameras(source_url)
+    req_id = getattr(request.state, "request_id", None)
+    return ApiResponse(
+        success=True,
+        data={
+            "synced_count": len(discovery.get("cameras", [])),
+            "catalog_state": discovery.get("catalog_state", "ready"),
+            "cameras": discovery.get("cameras", []),
+        },
+        request_id=req_id,
+    )
+
+
+@router.get(
+    "/{camera_id}/stream",
+    response_model=ApiResponse[Dict[str, Any]],
+    summary="Resolve Browser-Compatible Video Stream",
+    description="Resolves HLS / WebRTC stream endpoints for direct playback in modern browsers.",
+)
+async def get_camera_stream_endpoint(
+    camera_id: str,
+    request: Request,
+    protocol: str = Query("HLS", description="Preferred stream protocol (HLS, WEBRTC)"),
+) -> ApiResponse[Dict[str, Any]]:
+    stream_info = await stream_gateway_service.resolve_stream(
+        camera_id=camera_id,
+        protocol=protocol,
+    )
+    req_id = getattr(request.state, "request_id", None)
+    return ApiResponse(success=True, data=stream_info, request_id=req_id)
+
+
+@router.get(
+    "/{camera_id}/health",
+    response_model=ApiResponse[Dict[str, Any]],
+    summary="Query Real-Time Stream Health Telemetry",
+    description="Probes stream latency, FPS, and status from the live video node.",
+)
+async def get_camera_stream_health(
+    camera_id: str,
+    request: Request,
+) -> ApiResponse[Dict[str, Any]]:
+    health_info = await stream_gateway_service.get_stream_health(camera_id=camera_id)
+    req_id = getattr(request.state, "request_id", None)
+    return ApiResponse(success=True, data=health_info, request_id=req_id)
+

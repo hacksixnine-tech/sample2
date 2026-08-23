@@ -250,15 +250,7 @@ class CameraRepository(BaseRepository[Camera]):
             .where(Camera.department_id == department_id)
             .group_by(Camera.camera_type)
         )
-        camera_types = {row[0]: row[1] for row in (await session.execute(types_stmt)).all()}
-
-        dist_stmt = (
-            select(Location.district, func.count(Camera.id))
-            .join(Location, Camera.location_id == Location.id)
-            .where(Camera.department_id == department_id)
-            .group_by(Location.district)
-        )
-        districts = {row[0]: row[1] for row in (await session.execute(dist_stmt)).all()}
+        types_map = {row[0]: row[1] for row in (await session.execute(types_stmt)).all()}
 
         return {
             "department_id": dept.id,
@@ -269,6 +261,190 @@ class CameraRepository(BaseRepository[Camera]):
             "offline_cameras": offline,
             "degraded_cameras": degraded,
             "maintenance_cameras": maintenance,
-            "camera_types": camera_types,
-            "district_distribution": districts,
+            "by_camera_type": types_map,
+        }
+
+    async def find_cameras_in_bbox(
+        self,
+        session: AsyncSession,
+        min_lat: float,
+        min_lon: float,
+        max_lat: float,
+        max_lon: float,
+        department_id: Optional[uuid.UUID] = None,
+        district: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        """PostGIS Bounding Box Envelope query using spatial index."""
+        sql = """
+            SELECT 
+                c.id as camera_id,
+                c.camera_code,
+                c.name,
+                c.camera_type,
+                c.status,
+                c.connectivity_status,
+                l.id as location_id,
+                l.name as location_name,
+                l.district,
+                l.city,
+                l.latitude::float as latitude,
+                l.longitude::float as longitude,
+                d.name as department_name,
+                COALESCE(c.coverage_radius_meters, 150.0)::float as coverage_radius_meters,
+                (
+                    SELECT cs.protocol 
+                    FROM camera_streams cs 
+                    WHERE cs.camera_id = c.id AND cs.is_primary = TRUE 
+                    LIMIT 1
+                ) as primary_stream_protocol,
+                (
+                    SELECT cs.stream_url 
+                    FROM camera_streams cs 
+                    WHERE cs.camera_id = c.id AND cs.is_primary = TRUE 
+                    LIMIT 1
+                ) as primary_stream_url
+            FROM cameras c
+            JOIN locations l ON c.location_id = l.id
+            JOIN departments d ON c.department_id = d.id
+            WHERE l.latitude BETWEEN :min_lat AND :max_lat
+              AND l.longitude BETWEEN :min_lon AND :max_lon
+        """
+        params: Dict[str, Any] = {
+            "min_lat": min(min_lat, max_lat),
+            "max_lat": max(min_lat, max_lat),
+            "min_lon": min(min_lon, max_lon),
+            "max_lon": max(min_lon, max_lon),
+            "limit": limit,
+        }
+
+        if department_id:
+            sql += " AND c.department_id = :department_id"
+            params["department_id"] = department_id
+
+        if district:
+            sql += " AND l.district ILIKE :district"
+            params["district"] = district.strip()
+
+        if status:
+            sql += " AND c.connectivity_status = :status"
+            params["status"] = status.strip().upper()
+
+        sql += " ORDER BY c.created_at DESC LIMIT :limit;"
+
+        result = await session.execute(text(sql), params)
+        return [dict(row) for row in result.mappings().all()]
+
+    async def find_cameras_in_corridor(
+        self,
+        session: AsyncSession,
+        start_lat: float,
+        start_lon: float,
+        end_lat: float,
+        end_lon: float,
+        buffer_meters: float = 1000.0,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """PostGIS Route Corridor query searching within buffer of the trajectory line."""
+        sql = text("""
+            WITH corridor AS (
+                SELECT ST_Buffer(
+                    ST_SetSRID(ST_MakeLine(ST_MakePoint(:start_lon, :start_lat), ST_MakePoint(:end_lon, :end_lat)), 4326)::geography,
+                    :buffer_meters
+                ) as geom
+            )
+            SELECT 
+                c.id as camera_id,
+                c.camera_code,
+                c.name,
+                c.camera_type,
+                c.status,
+                c.connectivity_status,
+                l.id as location_id,
+                l.name as location_name,
+                l.district,
+                l.city,
+                l.latitude::float as latitude,
+                l.longitude::float as longitude,
+                d.name as department_name,
+                ROUND(ST_Distance(l.geom, ST_SetSRID(ST_MakeLine(ST_MakePoint(:start_lon, :start_lat), ST_MakePoint(:end_lon, :end_lat)), 4326)::geography)::numeric, 2)::float as distance_from_corridor_meters
+            FROM cameras c
+            JOIN locations l ON c.location_id = l.id
+            JOIN departments d ON c.department_id = d.id
+            JOIN corridor cor ON ST_Intersects(l.geom, cor.geom)
+            ORDER BY distance_from_corridor_meters ASC
+            LIMIT :limit;
+        """)
+
+        result = await session.execute(
+            sql,
+            {
+                "start_lat": start_lat,
+                "start_lon": start_lon,
+                "end_lat": end_lat,
+                "end_lon": end_lon,
+                "buffer_meters": buffer_meters,
+                "limit": limit,
+            },
+        )
+        return [dict(row) for row in result.mappings().all()]
+
+    async def analyze_coverage_gaps(
+        self,
+        session: AsyncSession,
+        district: Optional[str] = None,
+        department_id: Optional[uuid.UUID] = None,
+    ) -> Dict[str, Any]:
+        """Calculates surveillance density, low coverage zones, and offline hotspots."""
+        # 1. District density
+        dist_sql = text("""
+            SELECT 
+                l.district,
+                COUNT(c.id) as total_cameras,
+                COUNT(CASE WHEN c.connectivity_status = 'ONLINE' THEN 1 END) as online_cameras,
+                COUNT(CASE WHEN c.connectivity_status = 'OFFLINE' THEN 1 END) as offline_cameras,
+                AVG(l.latitude)::float as avg_lat,
+                AVG(l.longitude)::float as avg_lng,
+                CASE 
+                    WHEN COUNT(c.id) < 5 THEN 'LOW'
+                    WHEN COUNT(c.id) BETWEEN 5 AND 15 THEN 'MEDIUM'
+                    ELSE 'HIGH'
+                END as coverage_density_level
+            FROM locations l
+            LEFT JOIN cameras c ON l.id = c.location_id
+            GROUP BY l.district
+            ORDER BY total_cameras DESC;
+        """)
+        dist_rows = [dict(row) for row in (await session.execute(dist_sql)).mappings().all()]
+
+        # 2. Offline hotspots (locations with high concentration of offline/degraded cameras)
+        offline_sql = text("""
+            SELECT 
+                l.district,
+                l.city,
+                l.name as location_name,
+                l.latitude::float as latitude,
+                l.longitude::float as longitude,
+                COUNT(c.id) as offline_count
+            FROM cameras c
+            JOIN locations l ON c.location_id = l.id
+            WHERE c.connectivity_status IN ('OFFLINE', 'DEGRADED')
+            GROUP BY l.district, l.city, l.name, l.latitude, l.longitude
+            HAVING COUNT(c.id) >= 1
+            ORDER BY offline_count DESC
+            LIMIT 10;
+        """)
+        offline_rows = [dict(row) for row in (await session.execute(offline_sql)).mappings().all()]
+
+        # 3. Low coverage alert zones
+        low_coverage_zones = [d for d in dist_rows if d.get("coverage_density_level") == "LOW"]
+
+        metrics = await self.get_coverage_metrics(session)
+
+        return {
+            "statewide_summary": metrics,
+            "district_density": dist_rows,
+            "offline_hotspots": offline_rows,
+            "low_coverage_zones": low_coverage_zones,
         }

@@ -4,6 +4,7 @@ from app.api.v1.health import router as system_health_router
 from app.api.v1.info import router as info_router
 from app.api.v1.endpoints import (
     departments_router,
+    districts_router,
     locations_router,
     cameras_router,
     streams_router,
@@ -30,6 +31,7 @@ api_v1_router.include_router(system_health_router)
 api_v1_router.include_router(info_router)
 
 api_v1_router.include_router(departments_router)
+api_v1_router.include_router(districts_router)
 api_v1_router.include_router(locations_router)
 api_v1_router.include_router(cameras_router)
 api_v1_router.include_router(streams_router)

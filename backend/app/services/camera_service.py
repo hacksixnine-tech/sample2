@@ -227,3 +227,74 @@ class CameraService:
         metrics = await self.camera_repo.get_coverage_metrics(session)
         metrics["timestamp"] = datetime.now(timezone.utc)
         return CameraCoverageResponse(**metrics)
+
+    async def find_cameras_in_bbox(
+        self,
+        session: AsyncSession,
+        min_lat: float,
+        min_lon: float,
+        max_lat: float,
+        max_lon: float,
+        department_id: Optional[uuid.UUID] = None,
+        district: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        if not (-90.0 <= min_lat <= 90.0) or not (-90.0 <= max_lat <= 90.0):
+            raise ValidationError("Latitude must be between -90 and +90.")
+        if not (-180.0 <= min_lon <= 180.0) or not (-180.0 <= max_lon <= 180.0):
+            raise ValidationError("Longitude must be between -180 and +180.")
+
+        return await self.camera_repo.find_cameras_in_bbox(
+            session,
+            min_lat=min_lat,
+            min_lon=min_lon,
+            max_lat=max_lat,
+            max_lon=max_lon,
+            department_id=department_id,
+            district=district,
+            status=status,
+            limit=limit,
+        )
+
+    async def find_cameras_in_corridor(
+        self,
+        session: AsyncSession,
+        start_lat: float,
+        start_lon: float,
+        end_lat: float,
+        end_lon: float,
+        buffer_meters: float = 1000.0,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        for lat in (start_lat, end_lat):
+            if not (-90.0 <= lat <= 90.0):
+                raise ValidationError(f"Invalid latitude: {lat}. Must be between -90 and +90.")
+        for lon in (start_lon, end_lon):
+            if not (-180.0 <= lon <= 180.0):
+                raise ValidationError(f"Invalid longitude: {lon}. Must be between -180 and +180.")
+        if buffer_meters <= 0:
+            raise ValidationError("Corridor buffer in meters must be positive.")
+
+        return await self.camera_repo.find_cameras_in_corridor(
+            session,
+            start_lat=start_lat,
+            start_lon=start_lon,
+            end_lat=end_lat,
+            end_lon=end_lon,
+            buffer_meters=buffer_meters,
+            limit=limit,
+        )
+
+    async def analyze_coverage_gaps(
+        self,
+        session: AsyncSession,
+        district: Optional[str] = None,
+        department_id: Optional[uuid.UUID] = None,
+    ) -> Dict[str, Any]:
+        result = await self.camera_repo.analyze_coverage_gaps(
+            session, district=district, department_id=department_id
+        )
+        result["timestamp"] = datetime.now(timezone.utc)
+        return result
+

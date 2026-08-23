@@ -221,3 +221,33 @@ class CameraBulkImportResponse(BaseModel):
     failed: int
     errors: List[BulkImportErrorDetail] = Field(default_factory=list)
     imported_camera_codes: List[str] = Field(default_factory=list)
+
+
+class CameraBBoxQuery(BaseModel):
+    min_lat: float = Field(..., ge=-90.0, le=90.0)
+    min_lon: float = Field(..., ge=-180.0, le=180.0)
+    max_lat: float = Field(..., ge=-90.0, le=90.0)
+    max_lon: float = Field(..., ge=-180.0, le=180.0)
+    department_id: Optional[uuid.UUID] = None
+    district: Optional[str] = None
+    status: Optional[str] = None
+    limit: int = Field(500, ge=1, le=5000)
+
+
+class CameraCorridorQuery(BaseModel):
+    start_lat: float = Field(..., ge=-90.0, le=90.0)
+    start_lon: float = Field(..., ge=-180.0, le=180.0)
+    end_lat: float = Field(..., ge=-90.0, le=90.0)
+    end_lon: float = Field(..., ge=-180.0, le=180.0)
+    buffer_meters: float = Field(1000.0, gt=0, le=50000.0)
+    limit: int = Field(100, ge=1, le=1000)
+
+
+class CameraCoverageGapsResponse(BaseModel):
+    statewide_summary: Dict[str, Any]
+    district_density: List[Dict[str, Any]]
+    offline_hotspots: List[Dict[str, Any]]
+    low_coverage_zones: List[Dict[str, Any]]
+    calculation_methodology: str = "Estimated PostGIS buffer coverage analysis based on active camera density per district."
+    timestamp: datetime
+
