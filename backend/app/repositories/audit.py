@@ -1,6 +1,7 @@
-from typing import Any, Dict, Optional, Set
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Set, Tuple
 import uuid
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditLog
 from app.models.user import User
@@ -77,3 +78,60 @@ class AuditRepository(BaseRepository[AuditLog]):
         await session.flush()
         return log_entry
 
+    async def list_logs(
+        self,
+        session: AsyncSession,
+        action: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        user_id: Optional[uuid.UUID] = None,
+        ip_address: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        search: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> Tuple[List[AuditLog], int]:
+        stmt = select(AuditLog)
+        count_stmt = select(func.count()).select_from(AuditLog)
+
+        if action:
+            stmt = stmt.where(func.upper(AuditLog.action) == action.upper().strip())
+            count_stmt = count_stmt.where(func.upper(AuditLog.action) == action.upper().strip())
+
+        if resource_type:
+            stmt = stmt.where(func.upper(AuditLog.resource_type) == resource_type.upper().strip())
+            count_stmt = count_stmt.where(func.upper(AuditLog.resource_type) == resource_type.upper().strip())
+
+        if user_id:
+            stmt = stmt.where(AuditLog.user_id == user_id)
+            count_stmt = count_stmt.where(AuditLog.user_id == user_id)
+
+        if ip_address:
+            stmt = stmt.where(AuditLog.ip_address == ip_address.strip())
+            count_stmt = count_stmt.where(AuditLog.ip_address == ip_address.strip())
+
+        if start_date:
+            stmt = stmt.where(AuditLog.created_at >= start_date)
+            count_stmt = count_stmt.where(AuditLog.created_at >= start_date)
+
+        if end_date:
+            stmt = stmt.where(AuditLog.created_at <= end_date)
+            count_stmt = count_stmt.where(AuditLog.created_at <= end_date)
+
+        if search:
+            pattern = f"%{search.strip()}%"
+            filter_cond = or_(
+                AuditLog.details.ilike(pattern),
+                AuditLog.resource_id.ilike(pattern),
+                AuditLog.resource_type.ilike(pattern),
+            )
+            stmt = stmt.where(filter_cond)
+            count_stmt = count_stmt.where(filter_cond)
+
+        total = await session.scalar(count_stmt) or 0
+        stmt = stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+        result = await session.execute(stmt)
+        return list(result.scalars().all()), total
+
+
+audit_repo = AuditRepository()

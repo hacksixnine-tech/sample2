@@ -16,9 +16,10 @@ import {
   FileText,
   Building2,
   Users,
-  Sliders,
   Settings,
   Layers,
+  X,
+  Radio,
 } from 'lucide-react';
 
 export type NavView =
@@ -45,6 +46,8 @@ interface SidebarProps {
   activeView: NavView;
   onNavigate: (view: NavView) => void;
   alertCount?: number;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 interface NavItem {
@@ -60,7 +63,13 @@ interface NavSection {
   items: NavItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, alertCount = 0 }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeView,
+  onNavigate,
+  alertCount = 0,
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const sections: NavSection[] = [
     {
       title: 'COMMAND',
@@ -114,7 +123,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, alertC
   ];
 
   return (
-    <aside className="global-sidebar" aria-label="Surveillance Navigation">
+    <aside
+      className={`global-sidebar ${isMobileOpen ? 'mobile-open' : ''}`}
+      aria-label="Surveillance Navigation"
+    >
+      {/* Mobile Drawer Header */}
+      <div className="mobile-sidebar-header">
+        <div className="mobile-brand">
+          <Radio size={18} className="text-cyan animate-pulse" />
+          <span className="mobile-brand-name">PHANTOM C2</span>
+        </div>
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="mobile-close-btn"
+            aria-label="Close Navigation"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
       <div className="sidebar-scroll">
         {sections.map((section) => (
           <div key={section.title} className="sidebar-section">

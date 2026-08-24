@@ -16,9 +16,11 @@ from app.api.v1.endpoints import (
     detections_router,
     anpr_router,
     vehicles_router,
+    sightings_router,
     ai_results_router,
     watchlists_router,
     alerts_router,
+    events_router,
     incidents_router,
     investigations_router,
     evidence_router,
@@ -44,9 +46,11 @@ api_v1_router.include_router(users_router)
 api_v1_router.include_router(detections_router)
 api_v1_router.include_router(anpr_router)
 api_v1_router.include_router(vehicles_router)
+api_v1_router.include_router(sightings_router)
 api_v1_router.include_router(ai_results_router)
 api_v1_router.include_router(watchlists_router)
 api_v1_router.include_router(alerts_router)
+api_v1_router.include_router(events_router)
 api_v1_router.include_router(incidents_router)
 api_v1_router.include_router(investigations_router)
 api_v1_router.include_router(evidence_router)

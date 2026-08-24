@@ -7,6 +7,7 @@ import { CameraCard } from '../components/camera/CameraCard';
 import { AlertPanel } from '../components/alerts/AlertPanel';
 import { LoadingState } from '../components/common/LoadingError';
 import { useBackendStatus } from '../context/BackendStatusContext';
+import { useRealtimeEvents } from '../context/RealtimeEventContext';
 import {
   Camera as CamIcon,
   Wifi,
@@ -24,6 +25,7 @@ import {
 
 export const DashboardPage: React.FC = () => {
   const { isConnected } = useBackendStatus();
+  const { latestEvent, connectionStatus } = useRealtimeEvents();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [coverage, setCoverage] = useState<CameraCoverage | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -31,6 +33,84 @@ export const DashboardPage: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [anprCount, setAnprCount] = useState<number>(1420);
+  const [watchlistMatchCount, setWatchlistMatchCount] = useState<number>(12);
+
+  // Real-time Event Listener & State Synchronization
+  useEffect(() => {
+    if (!latestEvent) return;
+
+    const evtType = latestEvent.event_type;
+    const payload = latestEvent.payload || {};
+
+    if (evtType === 'ALERT_CREATED' || evtType === 'WATCHLIST_MATCH') {
+      const newAlert: Alert = {
+        id: latestEvent.event_id,
+        alert_code: payload.alert_code || `ALT-${latestEvent.event_id.substring(0, 8).toUpperCase()}`,
+        title: payload.title || `Real-Time Alert: ${latestEvent.entity_id || 'Vehicle'}`,
+        description: payload.message || payload.description || 'Live AI detection match.',
+        severity: (latestEvent.severity as any) || 'CRITICAL',
+        status: 'NEW',
+        event_type: evtType,
+        camera_id: latestEvent.camera_id,
+        camera_name: payload.camera_name || latestEvent.camera_id,
+        district: latestEvent.district,
+        confidence: payload.confidence || 0.98,
+        entity_id: latestEvent.entity_id,
+        created_at: latestEvent.timestamp,
+      };
+
+      setAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)]);
+      if (evtType === 'WATCHLIST_MATCH') {
+        setWatchlistMatchCount((c) => c + 1);
+      }
+    } else if (evtType === 'ALERT_ACKNOWLEDGED') {
+      const alertId = payload.alert_id || latestEvent.entity_id;
+      if (alertId) {
+        setAlerts((prev) =>
+          prev.map((a) => (a.id === alertId ? { ...a, status: 'ACKNOWLEDGED' } : a))
+        );
+      }
+    } else if (evtType === 'ALERT_RESOLVED' || evtType === 'ALERT_DISMISSED') {
+      const alertId = payload.alert_id || latestEvent.entity_id;
+      const targetStatus = evtType === 'ALERT_RESOLVED' ? 'RESOLVED' : 'DISMISSED';
+      if (alertId) {
+        setAlerts((prev) =>
+          prev.map((a) => (a.id === alertId ? { ...a, status: targetStatus as any } : a))
+        );
+      }
+    } else if (evtType === 'ANPR_DETECTED' || evtType === 'VEHICLE_DETECTED') {
+      setAnprCount((c) => c + 1);
+    } else if (evtType === 'CAMERA_OFFLINE') {
+      const camId = latestEvent.camera_id;
+      setCameras((prev) =>
+        prev.map((c) => (c.id === camId || c.camera_code === camId ? { ...c, status: 'OFFLINE' } : c))
+      );
+      setCoverage((prev) =>
+        prev
+          ? {
+              ...prev,
+              operational_cameras: Math.max(0, prev.operational_cameras - 1),
+              offline_cameras: prev.offline_cameras + 1,
+            }
+          : null
+      );
+    } else if (evtType === 'CAMERA_ONLINE') {
+      const camId = latestEvent.camera_id;
+      setCameras((prev) =>
+        prev.map((c) => (c.id === camId || c.camera_code === camId ? { ...c, status: 'ONLINE' } : c))
+      );
+      setCoverage((prev) =>
+        prev
+          ? {
+              ...prev,
+              operational_cameras: prev.operational_cameras + 1,
+              offline_cameras: Math.max(0, prev.offline_cameras - 1),
+            }
+          : null
+      );
+    }
+  }, [latestEvent]);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);

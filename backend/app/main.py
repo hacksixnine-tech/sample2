@@ -13,6 +13,8 @@ from app.core.logging import logger, setup_logging
 from app.db.session import check_db_connection, close_db_connection
 from app.middleware.access_log import AccessLogMiddleware
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.api.router import api_v1_router
 from app.api.v1.health import router as root_health_router
 
@@ -41,6 +43,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # 3. Graceful shutdown
     logger.info("Initiating graceful shutdown...")
+    from app.services.stream_gateway_service import stream_gateway_service
+    stream_gateway_service.cleanup_all()
     await close_db_connection()
     logger.info("Application shutdown complete.")
 
@@ -71,6 +75,12 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
         expose_headers=["X-Request-ID"],
     )
+
+    # Security Headers (XSS, clickjacking, CSP, HSTS)
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    # Rate Limiting (120 req/min general, 30 req/min for auth endpoints)
+    app.add_middleware(RateLimitMiddleware, requests_per_window=120, window_seconds=60)
 
     # Access Logging & Correlation Request ID
     app.add_middleware(AccessLogMiddleware)

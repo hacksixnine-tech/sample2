@@ -86,8 +86,7 @@ async def test_ssrf_cloud_metadata_rejection(client: AsyncClient):
         "protocol": "RTSP",
         "stream_url": "file:///etc/passwd",
     }
-    cams = (await client.get("/api/v1/cameras")).json()["data"]
-    cam_id = cams[0]["id"]
+    cam_id = str(uuid.uuid4())
     st_resp = await client.post(f"/api/v1/cameras/{cam_id}/streams", json=stream_payload, headers=headers)
     assert st_resp.status_code in (400, 422), f"Expected 400/422 for file:// scheme, got {st_resp.status_code}"
 

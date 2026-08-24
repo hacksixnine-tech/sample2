@@ -283,8 +283,36 @@ class ANPRObservationResponse(BaseModel):
     is_demo: bool = False
     anpr_claimed: bool = False
     metadata: Dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_")
+    
+    # Frontend & Intelligence Compatibility Fields
+    plate_number: Optional[str] = None
+    raw_plate_text: Optional[str] = None
+    confidence: Optional[float] = None
+    vehicle_type: Optional[str] = None
+    vehicle_color: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    camera_name: Optional[str] = None
+    district: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    matched_watchlist: bool = False
+    watchlist_type: Optional[str] = None
+    snapshot_url: Optional[str] = None
 
-    @field_validator("plate_confidence", "vehicle_confidence", mode="before")
+    @model_validator(mode="after")
+    def populate_compatibility_fields(self):
+        if not self.plate_number:
+            self.plate_number = self.normalized_plate or self.raw_plate or ""
+        if not self.raw_plate_text:
+            self.raw_plate_text = self.raw_plate or self.normalized_plate or ""
+        if self.confidence is None:
+            self.confidence = self.plate_confidence if self.plate_confidence is not None else 0.0
+        if not self.snapshot_url and self.frame_reference:
+            self.snapshot_url = self.frame_reference
+        return self
+
+    @field_validator("plate_confidence", "vehicle_confidence", "confidence", "latitude", "longitude", "speed_kmh", mode="before")
     @classmethod
     def num(cls, v):
         return float(v) if v is not None else v

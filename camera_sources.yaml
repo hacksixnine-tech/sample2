@@ -1,0 +1,345 @@
+# ==============================================================================
+# PHANTOM // Camera Source Configuration & Ingest Registry
+# Configures CCTV source streams for Gujarat Police 33 Districts Command Center
+# ==============================================================================
+# Supported source_type:
+#   - CORP8: Official live.corp8.cloud platform (handles 302 redirects & cookies)
+#   - HLS: Generic standard HLS / m3u8 stream endpoint
+#   - RTSP: Standard RTSP CCTV stream (transcoded to HLS by Stream Gateway)
+#   - HTTP: Progressive MP4 / WebM HTTP video stream
+#   - TEST_STREAM: Synthetic test card with live UTC time & camera code
+# ==============================================================================
+
+version: "1.0"
+default_stream_mode: "AUTO" # AUTO = Try external source first, fallback to TEST_STREAM if unreachable
+
+cameras:
+  - camera_code: "CAM-AMD-ITX-01"
+    name: "Income Tax Circle ANPR Northbound"
+    district: "Ahmedabad"
+    department: "Ahmedabad City Police"
+    source_type: "CORP8"
+    source_id: "13"
+    source_url: "https://live.corp8.cloud/live/stream/13/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/13"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AMD-ITX-02"
+    name: "Income Tax Circle 360 PTZ Junction"
+    district: "Ahmedabad"
+    department: "Traffic Police Ahmedabad"
+    source_type: "CORP8"
+    source_id: "14"
+    source_url: "https://live.corp8.cloud/live/stream/14/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/14"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AMD-ISK-01"
+    name: "Iskcon Junction ANPR Flyover Approach"
+    district: "Ahmedabad"
+    department: "Ahmedabad City Police"
+    source_type: "CORP8"
+    source_id: "15"
+    source_url: "https://live.corp8.cloud/live/stream/15/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/15"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AMD-KLP-01"
+    name: "Kalupur Station Entry Fixed Surveillance"
+    district: "Ahmedabad"
+    department: "Ahmedabad City Police"
+    source_type: "CORP8"
+    source_id: "16"
+    source_url: "https://live.corp8.cloud/live/stream/16/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/16"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AMD-RIV-01"
+    name: "Sabarmati Riverfront Promenade Fixed 01"
+    district: "Ahmedabad"
+    department: "Sabarmati Riverfront Security"
+    source_type: "CORP8"
+    source_id: "6"
+    source_url: "https://live.corp8.cloud/live/stream/6/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/6"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AMD-NRL-01"
+    name: "Narol Toll Plaza ANPR Entry Lane 1"
+    district: "Ahmedabad"
+    department: "Highway Patrol & RTO"
+    source_type: "CORP8"
+    source_id: "17"
+    source_url: "https://live.corp8.cloud/live/stream/17/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/17"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AMD-VSH-01"
+    name: "Vaishnodevi Circle ANPR North Ring"
+    district: "Ahmedabad"
+    department: "Ahmedabad City Police"
+    source_type: "CORP8"
+    source_id: "22"
+    source_url: "https://live.corp8.cloud/live/stream/22/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/22"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-GND-CH0-01"
+    name: "CH-0 Secretariat Main Gate Security PTZ"
+    district: "Gandhinagar"
+    department: "State Intelligence Bureau"
+    source_type: "CORP8"
+    source_id: "23"
+    source_url: "https://live.corp8.cloud/live/stream/23/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/23"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-GND-GFT-01"
+    name: "GIFT City Main Gate ANPR Boulevard"
+    district: "Gandhinagar"
+    department: "GIFT City Special Command"
+    source_type: "CORP8"
+    source_id: "26"
+    source_url: "https://live.corp8.cloud/live/stream/26/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/26"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-GND-GH5-01"
+    name: "GH-5 Sector 16 Fixed Junction Camera"
+    district: "Gandhinagar"
+    department: "Gandhinagar District Police"
+    source_type: "CORP8"
+    source_id: "27"
+    source_url: "https://live.corp8.cloud/live/stream/27/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/27"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-GND-KOB-01"
+    name: "Koba Circle Highway ANPR Corridor"
+    district: "Gandhinagar"
+    department: "State Traffic Branch"
+    source_type: "CORP8"
+    source_id: "29"
+    source_url: "https://live.corp8.cloud/live/stream/29/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/29"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-SUR-SDB-01"
+    name: "Surat Diamond Bourse Main Gate PTZ"
+    district: "Surat"
+    department: "Surat City Police"
+    source_type: "CORP8"
+    source_id: "13"
+    source_url: "https://live.corp8.cloud/live/stream/13/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/13"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-SUR-ATW-01"
+    name: "Athwa Gate Junction ANPR Westbound"
+    district: "Surat"
+    department: "Surat City Police"
+    source_type: "CORP8"
+    source_id: "14"
+    source_url: "https://live.corp8.cloud/live/stream/14/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/14"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-SUR-STN-01"
+    name: "Surat Railway Station Ring Road Fixed"
+    district: "Surat"
+    department: "Surat City Police"
+    source_type: "CORP8"
+    source_id: "15"
+    source_url: "https://live.corp8.cloud/live/stream/15/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/15"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-SUR-HZR-01"
+    name: "Hazira Port Logistics Gate ANPR"
+    district: "Surat"
+    department: "Coastal & Port Security"
+    source_type: "CORP8"
+    source_id: "16"
+    source_url: "https://live.corp8.cloud/live/stream/16/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/16"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-BDQ-KLG-01"
+    name: "Sayajigunj Kala Ghoda Circle PTZ"
+    district: "Vadodara"
+    department: "Vadodara City Police"
+    source_type: "CORP8"
+    source_id: "17"
+    source_url: "https://live.corp8.cloud/live/stream/17/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/17"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-BDQ-ALK-01"
+    name: "Alkapuri RC Dutt Road Fixed Surveillance"
+    district: "Vadodara"
+    department: "Vadodara City Police"
+    source_type: "CORP8"
+    source_id: "22"
+    source_url: "https://live.corp8.cloud/live/stream/22/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/22"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-BDQ-GLD-01"
+    name: "Golden Chokdi NH-48 ANPR Northbound"
+    district: "Vadodara"
+    department: "Highway Patrol & RTO"
+    source_type: "CORP8"
+    source_id: "23"
+    source_url: "https://live.corp8.cloud/live/stream/23/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/23"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-RAJ-TRK-01"
+    name: "Trikon Baug City Center 360 PTZ"
+    district: "Rajkot"
+    department: "Rajkot City Police"
+    source_type: "CORP8"
+    source_id: "26"
+    source_url: "https://live.corp8.cloud/live/stream/26/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/26"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-RAJ-MDH-01"
+    name: "Madhapar Chokdi Ring Road ANPR"
+    district: "Rajkot"
+    department: "Rajkot City Police"
+    source_type: "CORP8"
+    source_id: "27"
+    source_url: "https://live.corp8.cloud/live/stream/27/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/27"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-RAJ-GRN-01"
+    name: "Greenland Chokdi NH-27 ANPR Toll"
+    district: "Rajkot"
+    department: "Highway Patrol & RTO"
+    source_type: "CORP8"
+    source_id: "29"
+    source_url: "https://live.corp8.cloud/live/stream/29/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/29"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-BHV-GHG-01"
+    name: "Bhavnagar Ghogha Circle ANPR Checkpoint"
+    district: "Bhavnagar"
+    department: "Bhavnagar District Police"
+    source_type: "CORP8"
+    source_id: "13"
+    source_url: "https://live.corp8.cloud/live/stream/13/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/13"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-JAM-DIG-01"
+    name: "Jamnagar Digjam Circle PTZ Camera"
+    district: "Jamnagar"
+    department: "Jamnagar District Police"
+    source_type: "CORP8"
+    source_id: "14"
+    source_url: "https://live.corp8.cloud/live/stream/14/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/14"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-JUN-MJV-01"
+    name: "Junagadh Majevadi Gate Surveillance Fixed"
+    district: "Junagadh"
+    department: "Junagadh District Police"
+    source_type: "CORP8"
+    source_id: "15"
+    source_url: "https://live.corp8.cloud/live/stream/15/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/15"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-BHJ-JUB-01"
+    name: "Bhuj Jubilee Ground PTZ Command Camera"
+    district: "Kutch"
+    department: "Kutch Border Police"
+    source_type: "CORP8"
+    source_id: "16"
+    source_url: "https://live.corp8.cloud/live/stream/16/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/16"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-MSH-RDH-01"
+    name: "Mehsana Radhanpur Cross Road ANPR"
+    district: "Mehsana"
+    department: "Mehsana District Police"
+    source_type: "CORP8"
+    source_id: "17"
+    source_url: "https://live.corp8.cloud/live/stream/17/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/17"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-AND-EXP-01"
+    name: "Anand Express Highway Toll ANPR Inbound"
+    district: "Anand"
+    department: "Highway Patrol & RTO"
+    source_type: "CORP8"
+    source_id: "22"
+    source_url: "https://live.corp8.cloud/live/stream/22/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/22"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-BRC-NRM-01"
+    name: "Bharuch Narmada Bridge Toll ANPR"
+    district: "Bharuch"
+    department: "Bharuch District Police"
+    source_type: "CORP8"
+    source_id: "23"
+    source_url: "https://live.corp8.cloud/live/stream/23/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/23"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-SMN-TMP-01"
+    name: "Somnath Temple Promenade Fixed Security"
+    district: "Gir Somnath"
+    department: "Temple Security & Coastal Police"
+    source_type: "CORP8"
+    source_id: "26"
+    source_url: "https://live.corp8.cloud/live/stream/26/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/26"
+    enabled: true
+    auth_required: false
+
+  - camera_code: "CAM-SOU-KEV-01"
+    name: "Statue of Unity Welcome Gate 360 PTZ"
+    district: "Narmada"
+    department: "Statue of Unity Special Security"
+    source_type: "CORP8"
+    source_id: "27"
+    source_url: "https://live.corp8.cloud/live/stream/27/index.m3u8"
+    rtsp_url: "rtsp://live.corp8.cloud:8554/stream/27"
+    enabled: true
+    auth_required: false

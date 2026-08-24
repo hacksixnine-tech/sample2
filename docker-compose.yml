@@ -1,3 +1,8 @@
+# ==============================================================================
+# PHANTOM // Complete Statewide CCTV Command Center Docker Compose
+# One-command portable launch for Fresh Machine / Developer Environments
+# ==============================================================================
+
 services:
   phantom-db:
     image: postgis/postgis:16-3.4
@@ -13,12 +18,28 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - phantom_pgdata:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d/01_migrations:ro
+      - ./database/seeds:/docker-entrypoint-initdb.d/02_seeds:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-phantom}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
       start_period: 10s
+    networks:
+      - phantom-network
+
+  phantom-redis:
+    image: redis:7-alpine
+    container_name: phantom-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - phantom-network
 
@@ -31,34 +52,66 @@ services:
     depends_on:
       phantom-db:
         condition: service_healthy
+      phantom-redis:
+        condition: service_healthy
     environment:
-      APP_ENV: development
-      APP_DEBUG: "true"
+      APP_ENV: ${APP_ENV:-development}
+      APP_DEBUG: ${APP_DEBUG:-true}
       HOST: "0.0.0.0"
       PORT: "8000"
       POSTGRES_HOST: phantom-db
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: phantom
-      POSTGRES_USER: phantom_app
-      POSTGRES_PASSWORD: phantom_app_secure_password_2026
-      DATABASE_URL: postgresql+asyncpg://phantom_app:phantom_app_secure_password_2026@phantom-db:5432/phantom
-      DATABASE_URL_SYNC: postgresql://phantom_app:phantom_app_secure_password_2026@phantom-db:5432/phantom
-      SECRET_KEY: phantom_dev_secret_key_super_secure_for_hackathon_2026
-      AI_WORKER_API_KEY: phantom_ai_worker_dev_key_2026
-      LOG_LEVEL: INFO
-      LOG_FORMAT: json
+      POSTGRES_DB: ${POSTGRES_DB:-phantom}
+      POSTGRES_USER: ${APP_DB_USER:-phantom_app}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-phantom_app_secure_password_2026}
+      DATABASE_URL: postgresql+asyncpg://${APP_DB_USER:-phantom_app}:${APP_DB_PASSWORD:-phantom_app_secure_password_2026}@phantom-db:5432/${POSTGRES_DB:-phantom}
+      DATABASE_URL_SYNC: postgresql://${APP_DB_USER:-phantom_app}:${APP_DB_PASSWORD:-phantom_app_secure_password_2026}@phantom-db:5432/${POSTGRES_DB:-phantom}
+      REDIS_URL: redis://phantom-redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-phantom_dev_secret_key_super_secure_for_hackathon_2026}
+      AI_WORKER_API_KEY: ${AI_WORKER_API_KEY:-phantom_ai_worker_dev_key_2026}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      NODE_ROLE: ${NODE_ROLE:-CENTRAL}
+      REGIONAL_ZONE: ${REGIONAL_ZONE:-CENTRAL_GUJARAT}
+      STREAM_GATEWAY_CACHE_DIR: "/app/var/hls_cache"
+      CAMERA_SOURCES_FILE: "/app/camera_sources.yaml"
+      ENABLE_TEST_STREAM_FALLBACK: "true"
+    volumes:
+      - ./camera_sources.yaml:/app/camera_sources.yaml:ro
+      - phantom_hls_cache:/app/var/hls_cache
     ports:
       - "8000:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
       interval: 10s
       timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - phantom-network
+
+  phantom-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: phantom-frontend
+    restart: unless-stopped
+    depends_on:
+      phantom-backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 10s
+      timeout: 3s
       retries: 3
     networks:
       - phantom-network
 
 volumes:
   phantom_pgdata:
+  phantom_hls_cache:
 
 networks:
   phantom-network:

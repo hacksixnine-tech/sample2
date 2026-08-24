@@ -17,13 +17,12 @@ from app.schemas.camera import (
 )
 from app.services.camera_service import CameraService
 from app.services.bulk_import_service import BulkCameraImportService
-from app.services.stream_gateway_service import StreamGatewayService
+from app.services.stream_gateway_service import stream_gateway_service
 from app.services.source_discovery_service import SourceDiscoveryService
 
 router = APIRouter(prefix="/cameras", tags=["CCTV Cameras & Registry"])
 camera_service = CameraService()
 bulk_import_service = BulkCameraImportService()
-stream_gateway_service = StreamGatewayService()
 source_discovery_service = SourceDiscoveryService()
 
 

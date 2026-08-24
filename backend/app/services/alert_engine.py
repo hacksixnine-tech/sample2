@@ -185,7 +185,7 @@ class AlertEngine:
             "camera_name": camera.name,
             "district": camera.location.district if camera.location else None,
             "plate": plate,
-            "created_at": alert.created_at.isoformat(),
+            "created_at": (alert.created_at or now).isoformat(),
             "reason": explanation_dict,
         }
         await event_publisher.publish("AlertCreatedEvent", event_payload)
@@ -351,6 +351,23 @@ class AlertEngine:
             user_agent=user_agent,
             details=f"Alert {alert.alert_code} acknowledged by user {user_id}",
         )
+
+        await event_publisher.publish(
+            "ALERT_ACKNOWLEDGED",
+            {
+                "alert_id": str(alert.id),
+                "alert_code": alert.alert_code,
+                "status": "ACKNOWLEDGED",
+                "acknowledged_at": now.isoformat(),
+                "acknowledged_by": str(valid_uid) if valid_uid else None,
+                "severity": alert.severity,
+                "title": alert.title,
+                "camera_id": str(alert.camera_id) if alert.camera_id else None,
+            },
+            camera_id=str(alert.camera_id) if alert.camera_id else None,
+            severity=alert.severity,
+            source="alert-engine",
+        )
         return alert
 
     async def resolve_alert(
@@ -390,6 +407,24 @@ class AlertEngine:
             user_agent=user_agent,
             details=f"Alert {alert.alert_code} resolved: {resolution_notes}",
         )
+
+        await event_publisher.publish(
+            "ALERT_RESOLVED",
+            {
+                "alert_id": str(alert.id),
+                "alert_code": alert.alert_code,
+                "status": "RESOLVED",
+                "resolved_at": now.isoformat(),
+                "resolved_by": str(valid_uid) if valid_uid else None,
+                "resolution_notes": resolution_notes,
+                "severity": alert.severity,
+                "title": alert.title,
+                "camera_id": str(alert.camera_id) if alert.camera_id else None,
+            },
+            camera_id=str(alert.camera_id) if alert.camera_id else None,
+            severity=alert.severity,
+            source="alert-engine",
+        )
         return alert
 
     async def dismiss_alert(
@@ -419,6 +454,22 @@ class AlertEngine:
             ip_address=ip_address,
             user_agent=user_agent,
             details=f"Alert {alert.alert_code} dismissed: {dismissal_reason}",
+        )
+
+        await event_publisher.publish(
+            "ALERT_DISMISSED",
+            {
+                "alert_id": str(alert.id),
+                "alert_code": alert.alert_code,
+                "status": "DISMISSED",
+                "dismissal_reason": dismissal_reason,
+                "severity": alert.severity,
+                "title": alert.title,
+                "camera_id": str(alert.camera_id) if alert.camera_id else None,
+            },
+            camera_id=str(alert.camera_id) if alert.camera_id else None,
+            severity=alert.severity,
+            source="alert-engine",
         )
         return alert
 

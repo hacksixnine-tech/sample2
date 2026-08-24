@@ -49,5 +49,11 @@ def parse_bbox(raw) -> BoundingBox:
     return box
 
 
-def meets_ocr_threshold(confidence: float, threshold: float) -> bool:
-    return validate_confidence(confidence, "ocr_confidence") >= threshold
+def meets_ocr_threshold(confidence: Optional[float], threshold: float) -> bool:
+    if confidence is None:
+        return False
+    try:
+        return validate_confidence(confidence, "ocr_confidence") >= threshold
+    except (ValidationError, ValueError, TypeError):
+        return False
+

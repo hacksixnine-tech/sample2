@@ -266,3 +266,107 @@ export interface PaginatedResponse<T> {
     total_pages: number;
   };
 }
+
+export interface SightingDetail {
+  sighting_id?: string;
+  camera_id: string;
+  camera_name?: string;
+  source_camera_id?: string;
+  district?: string;
+  location_name?: string;
+  latitude?: number;
+  longitude?: number;
+  timestamp: string;
+  plate_confidence?: number;
+  vehicle_confidence?: number;
+  evidence_reference?: string;
+  alert_reference?: string;
+  frame_reference?: string;
+  is_demo?: boolean;
+  transition_distance_meters?: number;
+  transition_time_seconds?: number;
+  estimated_speed_kmph?: number;
+  speed_label?: string;
+  anomaly_flag?: string;
+  matched_watchlist?: boolean;
+  watchlist_type?: string;
+  alert_id?: string;
+  incident_id?: string;
+}
+
+export interface VehicleMovementHistory {
+  vehicle_id: string;
+  normalized_plate: string;
+  raw_plate: string;
+  vehicle_type?: string;
+  first_seen?: string;
+  last_seen?: string;
+  sighting_count: number;
+  unique_camera_count: number;
+  unique_district_count: number;
+  sort_order: 'asc' | 'desc';
+  sightings: SightingDetail[];
+}
+
+export interface VehicleSummary {
+  vehicle_id: string;
+  normalized_plate: string;
+  raw_plate: string;
+  vehicle_type?: string;
+  make?: string;
+  model?: string;
+  color?: string;
+  owner_name?: string;
+  first_seen?: string;
+  last_seen?: string;
+  total_sightings: number;
+  unique_cameras: number;
+  unique_districts: number;
+  watchlist_matches_count: number;
+  alerts_count: number;
+  watchlist_status: 'CLEAR' | 'MATCH';
+  highest_risk_level?: AlertSeverity;
+  investigation_status: 'OPEN' | 'UNDER_REVIEW' | 'WATCH' | 'RESOLVED' | 'ARCHIVED';
+  average_transition_speed_kmph?: number;
+  speed_disclaimer: string;
+  is_demo?: boolean;
+}
+
+export interface RoutePoint {
+  sequence: number;
+  camera_id: string;
+  camera_name?: string;
+  source_camera_id?: string;
+  district?: string;
+  city?: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  straight_line_distance_prev_meters?: number;
+  time_delta_prev_seconds?: number;
+  geographic_speed_kmph?: number;
+  speed_label?: string;
+  anomaly_flag?: string;
+}
+
+export interface VehicleRoute {
+  vehicle_id: string;
+  normalized_plate: string;
+  route_type: string;
+  point_count: number;
+  first_seen?: string;
+  last_seen?: string;
+  total_geographic_distance_meters: number;
+  unique_camera_count: number;
+  unique_district_count: number;
+  points: RoutePoint[];
+  anomalies_detected: Array<{
+    anomaly_type: string;
+    severity: string;
+    description: string;
+    camera_id?: string;
+    timestamp?: string;
+    speed_kmph?: number;
+  }>;
+}
+

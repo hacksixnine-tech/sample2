@@ -6,8 +6,9 @@ async def test_stream_gateway_resolve_stream():
     service = StreamGatewayService()
     res = await service.resolve_stream(camera_id="CAM-13", protocol="HLS")
     assert res is not None
-    assert res["camera_id"] == "CAM-13"
-    assert "https://live.corp8.cloud/stream/13" in res["browser_playback_url"]
+    assert "CAM-013" in res["camera_id"] or "CAM-13" in res["camera_id"]
+    assert "/api/v1/streams/" in res["browser_playback_url"]
+    assert res["browser_playback_url"].endswith("/live.m3u8")
     assert res["is_direct_browser_supported"] is True
     assert "session_id" in res
     assert res["session_id"] in service.active_sessions
