@@ -1,1 +1,3 @@
-# Tracking interfaces are reserved for Step 6 cross-camera intelligence.
+﻿from app.ai.tracking.tracker import ByteTrackManager, CameraByteTracker, get_global_tracker
+
+__all__ = ["ByteTrackManager", "CameraByteTracker", "get_global_tracker"]

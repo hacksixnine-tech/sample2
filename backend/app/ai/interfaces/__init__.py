@@ -73,6 +73,9 @@ class NormalizedDetection:
     frame_reference: Optional[str] = None
     source_camera_id: Optional[str] = None
     source_system_id: Optional[uuid.UUID] = None
+    track_id: Optional[int] = None
+    speed_estimate_kmph: Optional[float] = None
+    direction_heading: Optional[str] = None
     plate: Optional[PlateOCRResult] = None
     plate_bbox: Optional[BoundingBox] = None
     plate_crop_reference: Optional[str] = None

@@ -174,6 +174,22 @@ def create_application() -> FastAPI:
     # Versioned API routes under /api/v1
     app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 
+    # 4. Mount Visual Command Center Dashboard
+    import os
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    if os.path.exists("static"):
+        app.mount("/static", StaticFiles(directory="static"), name="static")
+
+        @app.get("/", include_in_schema=False)
+        async def root_redirect():
+            return FileResponse("static/index.html")
+
+        @app.get("/dashboard", include_in_schema=False)
+        async def dashboard_view():
+            return FileResponse("static/index.html")
+
     return app
 
 

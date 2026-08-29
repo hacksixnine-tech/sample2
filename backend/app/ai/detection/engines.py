@@ -120,13 +120,18 @@ class DemoInferenceEngine:
 
 
 class UltralyticsDetectionEngine:
-    """Optional YOLO-compatible detector. Loaded only if ultralytics is installed and a path is set."""
+    """YOLO-compatible detector with ByteTrack object tracking and ANPR integration."""
 
-    def __init__(self, model_path: str, device: str):
+    def __init__(self, model_path: Optional[str] = None, device: str = "cpu"):
         from ultralytics import YOLO  # type: ignore
+        from app.ai.tracking import get_global_tracker
+        from app.ai.anpr import get_global_anpr_engine
 
         self.device = device
-        self.model = YOLO(model_path)
+        resolved_path = model_path if model_path and model_path.strip() else "yolov8n.pt"
+        self.model = YOLO(resolved_path)
+        self.tracker = get_global_tracker()
+        self.anpr_engine = get_global_anpr_engine()
 
     def detect(self, frame: FramePacket) -> List[NormalizedDetection]:
         cfg = load_ai_config()
@@ -139,7 +144,7 @@ class UltralyticsDetectionEngine:
             device=self.device,
             verbose=False,
         )
-        detections: List[NormalizedDetection] = []
+        raw_detections: List[NormalizedDetection] = []
         for result in results:
             names = result.names or {}
             boxes = result.boxes
@@ -159,7 +164,7 @@ class UltralyticsDetectionEngine:
                     conf = validate_confidence(conf)
                 except Exception:
                     continue
-                detections.append(
+                raw_detections.append(
                     NormalizedDetection(
                         detection_id=str(uuid.uuid4()),
                         camera_id=frame.camera_id,
@@ -176,12 +181,21 @@ class UltralyticsDetectionEngine:
                         raw_model_class=str(raw),
                     )
                 )
-        return detections
+
+        # 1. Apply ByteTrack Multi-Object Tracking
+        tracked_detections = self.tracker.track(
+            frame.camera_id, raw_detections, frame_timestamp=frame.timestamp
+        )
+
+        # 2. Apply Two-Stage ANPR OCR for Vehicles
+        final_detections = self.anpr_engine.process_detections(frame, tracked_detections)
+
+        return final_detections
 
 
 def build_inference_engine() -> InferenceEngine:
     cfg = load_ai_config()
-    if cfg.demo_mode or not cfg.model_path:
+    if cfg.demo_mode:
         return DemoInferenceEngine()
     try:
         detector = UltralyticsDetectionEngine(cfg.model_path, cfg.device)
@@ -208,3 +222,4 @@ def build_inference_engine() -> InferenceEngine:
         return Wrapped()
     except Exception:
         return DemoInferenceEngine()
+

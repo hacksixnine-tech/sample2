@@ -1,0 +1,2276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gujarat Police Tactical GIS Command Center</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<!-- Leaflet & Heat plugin -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+
+<style>
+:root {
+    --bg-dark: #090d16;
+    --bg-card: rgba(15, 23, 42, 0.94);
+    --border-card: rgba(51, 65, 85, 0.7);
+    --accent-blue: #3b82f6;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --accent-amber: #f59e0b;
+    --accent-purple: #a855f7;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; width: 100%; font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-primary); overflow: hidden; }
+
+#map { height: 100%; width: 100%; z-index: 1; }
+
+/* Top Command Header Bar */
+.top-nav {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    right: 440px;
+    height: 52px;
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: 14px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.police-badge-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.police-shield-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    border: 1px solid #60a5fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+}
+.brand-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    color: #fff;
+    text-transform: uppercase;
+}
+.brand-sub {
+    font-size: 11px;
+    color: var(--accent-blue);
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.ticker-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #fca5a5;
+    font-family: 'JetBrains Mono', monospace;
+    animation: alertPulse 2s infinite ease-in-out;
+}
+@keyframes alertPulse {
+    0%, 100% { border-color: rgba(239,68,68,0.35); }
+    50% { border-color: rgba(239,68,68,0.9); box-shadow: 0 0 10px rgba(239,68,68,0.3); }
+}
+
+.clock-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: rgba(15, 23, 42, 0.8);
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-card);
+}
+
+/* Sidebar Dashboard */
+.dashboard {
+    position: absolute;
+    z-index: 1000;
+    top: 14px;
+    right: 14px;
+    width: 410px;
+    max-height: calc(100vh - 28px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border-card);
+    border-radius: 18px;
+    box-shadow: 0 18px 45px rgba(0,0,0,0.65);
+    overflow: hidden;
+}
+
+.header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border-card);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), transparent);
+}
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.header h1 { margin: 0; font-size: 18px; font-weight: 800; color: #fff; }
+.header p { margin: 3px 0 0; color: var(--text-secondary); font-size: 11px; }
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #34d399;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Tactical Metrics */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-card);
+    background: rgba(10, 15, 30, 0.4);
+}
+.stat {
+    padding: 8px 6px;
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.7);
+    text-align: center;
+}
+.stat .value { display: block; font-size: 17px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+.stat.total .value { color: var(--accent-blue); }
+.stat.active .value { color: var(--accent-green); }
+.stat.inactive .value { color: var(--accent-red); }
+.stat.nearby .value { color: var(--accent-amber); }
+.stat .label { display: block; margin-top: 2px; color: var(--text-muted); font-size: 9px; text-transform: uppercase; font-weight: 700; }
+
+/* Quick Mode Toolbar */
+.quick-tools {
+    display: flex;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-card);
+    background: rgba(15, 23, 42, 0.5);
+}
+.tool-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border-card);
+    background: rgba(30, 41, 59, 0.6);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.tool-btn:hover { background: rgba(59, 130, 246, 0.2); color: #fff; border-color: var(--accent-blue); }
+.tool-btn.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+.tool-btn.pursuit { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+.tool-btn.pursuit:hover { background: rgba(239, 68, 68, 0.35); color: #fff; }
+
+/* Controls Section */
+.controls { padding: 12px 14px; border-bottom: 1px solid var(--border-card); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field { margin-bottom: 8px; }
+.field label { display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.field input, .field select {
+    width: 100%; height: 36px; padding: 0 10px;
+    border: 1px solid var(--border-card); border-radius: 8px;
+    background: rgba(10, 15, 30, 0.7); color: #fff; font-size: 12px; outline: none;
+    font-family: 'JetBrains Mono', monospace;
+    transition: border 0.15s;
+}
+.field input:focus, .field select:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+button {
+    min-height: 36px; padding: 0 10px; border-radius: 8px;
+    border: 1px solid transparent; cursor: pointer;
+    font-size: 11px; font-weight: 700; transition: 0.15s;
+}
+.btn-primary { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border-color: #3b82f6; box-shadow: 0 2px 8px rgba(37,99,235,0.4); }
+.btn-secondary { background: rgba(30, 41, 59, 0.8); border-color: var(--border-card); color: var(--text-secondary); }
+button:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+/* Results List */
+.content { min-height: 0; flex: 1; overflow-y: auto; }
+.section-title {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-secondary);
+}
+.section-title span.summary { color: var(--accent-blue); font-family: 'JetBrains Mono', monospace; }
+
+#results { padding: 0 12px 10px; }
+.result-card {
+    display: flex; gap: 10px; align-items: flex-start;
+    margin: 6px 0; padding: 10px;
+    border: 1px solid var(--border-card); border-radius: 10px;
+    background: rgba(15, 23, 42, 0.6); cursor: pointer;
+    transition: all 0.15s;
+}
+.result-card:hover { border-color: var(--accent-blue); background: rgba(30, 41, 59, 0.85); transform: translateX(3px); }
+.result-number {
+    flex: 0 0 26px; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; background: rgba(59, 130, 246, 0.18); color: var(--accent-blue);
+    font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+}
+.result-main { min-width: 0; flex: 1; }
+.result-top { display: flex; justify-content: space-between; gap: 8px; }
+.camera-name { font-size: 12px; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; }
+.distance { color: var(--accent-amber); font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.meta { margin-top: 3px; color: var(--text-secondary); font-size: 11px; line-height: 1.4; }
+.tags { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.status {
+    display: inline-block; padding: 2px 6px;
+    border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase;
+}
+.status-active { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.status-inactive { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.direction-badge { background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; }
+
+/* Camera Details Box */
+#details {
+    display: none; margin: 0 12px 12px; padding: 12px;
+    border: 1px solid var(--accent-blue); border-radius: 10px;
+    background: rgba(30, 41, 59, 0.9); line-height: 1.5; font-size: 11px;
+}
+.details-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+.detail-row { margin: 2px 0; color: var(--text-secondary); display: flex; justify-content: space-between; }
+.detail-row b { color: var(--text-primary); font-weight: 600; }
+.detail-actions { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.btn-feed { background: linear-gradient(135deg, #10b981, #059669); color: white; grid-column: span 2; }
+
+.empty {
+    margin: 8px 0 12px; padding: 16px 12px; text-align: center;
+    border: 1px dashed var(--border-card); border-radius: 10px; color: var(--text-muted); font-size: 11px;
+}
+
+/* Live CCTV Modal */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
+    z-index: 2000; display: none; align-items: center; justify-content: center;
+}
+.modal-box {
+    width: 680px; max-width: 90vw; background: #0f172a;
+    border: 1px solid var(--border-card); border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8); overflow: hidden;
+}
+.modal-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border-card);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h3 { font-size: 14px; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; }
+.modal-close { background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+.modal-body { padding: 14px; }
+.cctv-screen {
+    position: relative; width: 100%; height: 340px; background: #020617;
+    border-radius: 10px; overflow: hidden; border: 1px solid #1e293b;
+    display: flex; flex-direction: column; justify-content: space-between;
+}
+.cctv-hud-top {
+    padding: 10px; display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #10b981;
+    text-shadow: 0 0 6px rgba(16,185,129,0.6);
+}
+.rec-dot { display: inline-block; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; margin-right: 6px; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+.cctv-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+}
+.ai-box {
+    position: absolute; border: 2px solid var(--accent-green);
+    background: rgba(16, 185, 129, 0.08); font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; color: #fff; padding: 2px 4px;
+}
+.ai-box.alert {
+    border-color: var(--accent-red); background: rgba(239, 68, 68, 0.15); color: #fca5a5;
+    animation: boxFlash 1.2s infinite;
+}
+@keyframes boxFlash { 0%, 100% { border-color: var(--accent-red); } 50% { border-color: #fff; } }
+
+/* Leaflet Custom Marker & FOV Cones */
+.leaflet-div-icon { background: transparent !important; border: 0 !important; }
+.number-marker {
+    width: 28px; height: 28px; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+    border: 2px solid #ffffff;
+    transition: transform 0.2s;
+}
+.number-marker:hover { transform: rotate(-45deg) scale(1.15); }
+.number-marker span {
+    transform: rotate(45deg); color: white; font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+}
+
+.search-origin-marker {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #3b82f6; border: 3px solid #ffffff;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.9);
+    animation: pulseRing 1.8s infinite;
+}
+@keyframes pulseRing {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+    70% { box-shadow: 0 0 0 16px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+/* Custom Map Controls Positioning */
+.leaflet-top.leaflet-left { top: 76px; }
+.leaflet-control-layers {
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid var(--border-card) !important;
+    border-radius: 10px !important;
+    color: var(--text-primary) !important;
+    backdrop-filter: blur(10px);
+}
+.leaflet-control-layers-base label, .leaflet-control-layers-overlays label {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+    .top-nav { right: 14px; top: 10px; height: auto; padding: 10px; flex-wrap: wrap; }
+    .dashboard { top: 75px; left: 10px; right: 10px; width: auto; max-height: 60vh; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* AI Model Lab Modal & Tabs */
+.ai-lab-modal {
+    width: 1000px; max-width: 96vw; max-height: 90vh;
+    background: #090e1a; border: 1px solid #1e293b;
+    border-radius: 18px; box-shadow: 0 25px 70px rgba(0,0,0,0.9);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.ai-lab-tabs {
+    display: flex; background: rgba(15, 23, 42, 0.95);
+    border-bottom: 1px solid #1e293b; overflow-x: auto; padding: 6px 12px; gap: 6px;
+}
+.ai-tab-btn {
+    padding: 8px 14px; border-radius: 8px; font-size: 11px; font-weight: 700;
+    color: #94a3b8; background: transparent; border: 1px solid transparent;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap; font-family: 'JetBrains Mono', monospace;
+}
+.ai-tab-btn:hover { color: #fff; background: rgba(30, 41, 59, 0.6); }
+.ai-tab-btn.active { color: #34d399; background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); }
+
+.ai-tab-pane { display: none; padding: 18px; overflow-y: auto; max-height: calc(90vh - 120px); }
+.ai-tab-pane.active { display: block; }
+
+.ai-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ai-card {
+    background: rgba(15, 23, 42, 0.7); border: 1px solid #1e293b;
+    border-radius: 12px; padding: 14px; margin-bottom: 12px;
+}
+.ai-card-title {
+    font-size: 12px; font-weight: 800; text-transform: uppercase;
+    color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+}
+.ai-output-box {
+    background: #040711; border: 1px solid #1e293b; border-radius: 8px;
+    padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: #cbd5e1; line-height: 1.6; white-space: pre-wrap;
+}
+.quick-chip {
+    display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 10px;
+    background: rgba(30, 41, 59, 0.8); border: 1px solid #334155; color: #94a3b8;
+    cursor: pointer; margin: 3px 2px; font-family: 'JetBrains Mono', monospace; transition: 0.15s;
+}
+.quick-chip:hover { color: #fff; border-color: #3b82f6; background: rgba(59, 130, 246, 0.2); }
+
+</style>
+</head>
+<body>
+
+<!-- Map Container -->
+<div id="map"></div>
+
+<!-- Top Command Header Bar -->
+<div class="top-nav">
+    <div class="police-badge-brand">
+        <div class="police-shield-icon">🛡️</div>
+        <div>
+            <div class="brand-title">Gujarat Police GIS Command</div>
+            <div class="brand-sub">AHMEDABAD SMART SURVEILLANCE GRID</div>
+        </div>
+    </div>
+    
+    <div class="ticker-box" id="alertBanner">
+        <span>⚠️ LIVE ALERT:</span>
+        <span id="alertText">ANPR MATCH [GJ-01-XX-9921] near CG Road</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;"><button onclick="openAiLabModal()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: 1px solid #34d399; padding: 6px 14px; border-radius: 8px; font-weight: 800; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 0 12px rgba(16,185,129,0.4);">🧪 TEST 6 AI MODELS</button><div class="clock-display" id="liveClock">21:30:00 IST</div></div>
+</div>
+
+<!-- Floating Tactical Dashboard -->
+<div class="dashboard">
+    <div class="header">
+        <div class="header-row">
+            <div>
+                <h1>Camera Grid & GIS</h1>
+                <p>Real-time node telemetry & spatial perimeter</p>
+            </div>
+            <div class="badge">TACTICAL GIS v2.4</div>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat total"><span class="value" id="totalCount">0</span><span class="label">Total Nodes</span></div>
+        <div class="stat active"><span class="value" id="activeCount">0</span><span class="label">Active</span></div>
+        <div class="stat inactive"><span class="value" id="inactiveCount">0</span><span class="label">Inactive</span></div>
+        <div class="stat nearby"><span class="value" id="nearbyCount">0</span><span class="label">In Range</span></div>
+    </div>
+
+    <!-- Quick Tactical Tools -->
+    <div class="quick-tools">
+        <button class="tool-btn active" id="btnFovToggle" onclick="toggleFovCones()">👁️ Camera FOV</button>
+        <button class="tool-btn pursuit" onclick="simulateSuspectPursuit()">🚨 Track Pursuit</button>
+        <button class="tool-btn" style="color:#34d399; border-color:rgba(16,185,129,0.4); background:rgba(16,185,129,0.15);" onclick="openAiLabModal()">🧪 AI Lab</button>
+        <button class="tool-btn" onclick="clearPursuit()">✖ Clear</button>
+    </div>
+
+        <div class="field">
+            <label>Select Gujarat District / Sector</label>
+            <select id="districtSelector" onchange="onDistrictChange(this.value)">
+                <option value="Ahmedabad" selected>Ahmedabad (Chiman Bhai / Paldi / ONGC)</option>
+                <option value="Junagadh">Junagadh (Timbavadi / Majewadi / Dolatpara)</option>
+                <option value="Gandhinagar">Gandhinagar (Adalaj Toll / Dehgam)</option>
+                <option value="Rajkot">Rajkot (Central Bus Port / Trikon Baug)</option>
+                <option value="Navsari">Navsari / Bilimora (Coastal / Tankal)</option>
+                <option value="Gir Somnath">Gir Somnath (Veraval NH-51)</option>
+                <option value="Patan">Patan (Dethali Char Rasta)</option>
+                <option value="Banaskantha">Banaskantha (Mervada Tran Rasta)</option>
+                <option value="Kheda">Kheda (Kheram Circle NH-48)</option>
+                <option value="Kutch">Kutch (Gandhidham Rambaugh)</option>
+                <option value="Mehsana">Mehsana (State Highway & Toll Corridor)</option>
+                <option value="Statewide">Statewide All Gujarat</option>
+            </select>
+        </div>
+
+        <div class="grid2">
+            <div class="field">
+                <label>Latitude (Lat)</label>
+                <input id="lat" type="number" step="any" value="23.0225">
+            </div>
+            <div class="field">
+                <label>Longitude (Lon)</label>
+                <input id="lon" type="number" step="any" value="72.5714">
+            </div>
+        </div>
+
+        <div class="grid2">
+            <div class="field">
+                <label>Perimeter Radius (km)</label>
+                <input id="radius" type="number" min="0.1" step="0.1" value="15.0">
+            </div>
+            <div class="field">
+                <label>Filter Status</label>
+                <select id="statusFilter" onchange="renderCameras()">
+                    <option value="All">All Cameras</option>
+                    <option value="Active">Active Only</option>
+                    <option value="Inactive">Inactive Only</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn-secondary" onclick="useMyLocation()">📍 My GPS</button>
+            <button class="btn-primary" onclick="findNearbyCameras()">🎯 Scan Sector</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="section-title">
+            <span id="resultHeading">Filtered Telemetry</span>
+            <span class="summary" id="resultSummary">Ready</span>
+        </div>
+        <div id="results">
+            <div class="empty">Set perimeter coordinates and click "Scan Perimeter".</div>
+        </div>
+        <div id="details"></div>
+    </div>
+</div>
+
+
+<!-- AI MODEL TESTING LAB MODAL -->
+<div class="modal-overlay" id="aiLabModal">
+    <div class="ai-lab-modal">
+        <!-- Header -->
+        <div class="modal-header" style="background: linear-gradient(180deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95));">
+            <div>
+                <h3 style="color:#34d399; display:flex; align-items:center; gap:8px;">
+                    <span>🧪 TACTICAL AI TESTING LAB</span>
+                    <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4);">6-MODEL ECOSYSTEM</span>
+                </h3>
+                <p style="margin:2px 0 0; font-size:11px; color:#94a3b8;">Interactive verification harness for YOLOv8, ByteTrack, Two-Stage ANPR, FastReID, VLM, and Copilot Agent</p>
+            </div>
+            <button class="modal-close" onclick="closeAiLabModal()">&times;</button>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="ai-lab-tabs">
+            <button class="ai-tab-btn active" onclick="switchAiTab('yolo')">1. 🎯 YOLOv8 Detection</button>
+            <button class="ai-tab-btn" onclick="switchAiTab('bytetrack')">2. 🔄 ByteTrack Tracking</button>
+            <button class="ai-tab-btn" onclick="switchAiTab('anpr')">3. 🔍 ANPR & RTO OCR</button>
+            <button class="ai-tab-btn" onclick="switchAiTab('reid')">4. 🧬 FastReID Matcher</button>
+            <button class="ai-tab-btn" onclick="switchAiTab('vlm')">5. 👁️ Contextual VLM</button>
+            <button class="ai-tab-btn" onclick="switchAiTab('copilot')">6. 🤖 Police Copilot</button>
+        </div>
+
+        <!-- TAB 1: YOLOv8 Object Detection -->
+        <div class="ai-tab-pane active" id="tab-yolo">
+            <div class="ai-grid-2">
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>SURVEILLANCE SCENE SELECTOR</span><span style="color:#10b981;">Ultralytics YOLOv8n</span></div>
+                        <div style="margin-bottom:10px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:4px;">Test Scene:</label>
+                            <select id="yoloSceneSelect" onchange="loadYoloScene(this.value)" style="width:100%; height:34px; background:#040711; border:1px solid #334155; color:#fff; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono',monospace; font-size:11px;">
+                                <option value="junction">Scene A: Ahmedabad CG Road Junction (Bus + Cars + Persons)</option>
+                                <option value="highway">Scene B: SG Highway Express Corridor (Vehicles + Bikes)</option>
+                                <option value="toll">Scene C: Night Adalaj Tollnaka (Low-Light Target)</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:4px;">Confidence Threshold: <b id="yoloConfVal" style="color:#38bdf8;">0.45</b></label>
+                            <input type="range" min="0.20" max="0.90" step="0.05" value="0.45" oninput="document.getElementById('yoloConfVal').textContent = this.value; renderYoloDetections();" style="width:100%;">
+                        </div>
+                        <button class="btn-primary" onclick="renderYoloDetections()" style="width:100%;">▶ Run YOLOv8 Real-Time Inference</button>
+                    </div>
+
+                    <div style="position:relative; width:100%; height:230px; background:#020617; border-radius:10px; overflow:hidden; border:1px solid #1e293b;">
+                        <canvas id="yoloCanvas" width="460" height="230" style="width:100%; height:100%; object-fit:contain;"></canvas>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>MODEL INFERENCE TELEMETRY</span><span id="yoloLatency" style="color:#f59e0b;">LATENCY: 12.4 ms</span></div>
+                        <div class="ai-output-box" id="yoloOutputText">Click "Run YOLOv8 Real-Time Inference" to process the frame...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: ByteTrack Multi-Object Tracking -->
+        <div class="ai-tab-pane" id="tab-bytetrack">
+            <div class="ai-grid-2">
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>REAL-TIME TRAJECTORY ENGINE</span><span style="color:#10b981;">ByteTrack v0.28</span></div>
+                        <div style="display:flex; gap:8px; margin-bottom:10px;">
+                            <button class="btn-primary" onclick="toggleByteTrackLoop()" id="btnByteTrackPlay" style="flex:1;">⏸ Pause Motion</button>
+                            <button class="btn-secondary" onclick="spawnTrackVehicle()" style="flex:1;">➕ Spawn Target</button>
+                            <button class="btn-secondary" onclick="resetByteTracker()" style="flex:1;">🔄 Reset</button>
+                        </div>
+                    </div>
+
+                    <div style="position:relative; width:100%; height:260px; background:#020617; border-radius:10px; overflow:hidden; border:1px solid #1e293b;">
+                        <canvas id="trackCanvas" width="460" height="260" style="width:100%; height:100%;"></canvas>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>ACTIVE TRACKS & VELOCITY LOG</span><span style="color:#34d399;" id="trackActiveCount">ACTIVE: 3</span></div>
+                        <div class="ai-output-box" id="trackOutputLog">Tracking active objects...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Two-Stage ANPR & Gujarat RTO -->
+        <div class="ai-tab-pane" id="tab-anpr">
+            <div class="ai-grid-2">
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>LICENSE PLATE OCR SCANNER</span><span style="color:#10b981;">EasyOCR + Regex Normalizer</span></div>
+                        <div style="margin-bottom:8px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:4px;">Vehicle License Plate:</label>
+                            <input id="anprInputPlate" type="text" value="GJ01AB1234" style="width:100%; height:34px; background:#040711; border:1px solid #334155; color:#fff; border-radius:6px; padding:0 10px; font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; text-transform:uppercase;">
+                        </div>
+
+                        <div style="margin-bottom:10px;">
+                            <span style="font-size:10px; color:#64748b; display:block; margin-bottom:4px;">QUICK GUJARAT RTO PRESETS:</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ01AB1234')">GJ-01 Ahmedabad</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ02CD5678')">GJ-02 Mehsana</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ03EF9012')">GJ-03 Rajkot</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ05GH3456')">GJ-05 Surat</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ06IJ7890')">GJ-06 Vadodara</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ18KL1122')">GJ-18 Gandhinagar</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ24GH3344')">GJ-24 Patan</span>
+                            <span class="quick-chip" onclick="setAnprPlate('GJ11JK6677')">GJ-11 Junagadh</span>
+                            <span class="quick-chip" onclick="setAnprPlate('DL01AB9988')">DL-01 Delhi (Out-of-State)</span>
+                        </div>
+
+                        <button class="btn-primary" onclick="runAnprScan()" style="width:100%;">🔍 Execute ANPR & Jurisdiction OCR</button>
+                    </div>
+
+                    <!-- Visual Plate Rendering -->
+                    <div style="background:#f8fafc; border:3px solid #000; border-radius:8px; padding:12px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+                        <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                            <div style="background:#003399; color:#ffcc00; font-size:10px; font-weight:800; padding:2px 4px; border-radius:3px;">IND</div>
+                            <div id="plateVisualText" style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:900; color:#0f172a; letter-spacing:3px;">GJ 01 AB 1234</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>JURISDICTION & WATCHLIST STATUS</span><span id="anprStatusBadge" style="color:#10b981;">VERIFIED</span></div>
+                        <div class="ai-output-box" id="anprOutputResult">Click "Execute ANPR & Jurisdiction OCR" to parse plate...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: FastReID Cross-Camera Matching -->
+        <div class="ai-tab-pane" id="tab-reid">
+            <div class="ai-grid-2">
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>CROSS-CAMERA VISUAL EMBEDDINGS</span><span style="color:#10b981;">FastReID / OSNet 512-dim</span></div>
+                        <div style="margin-bottom:10px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:4px;">Target Suspect Signature:</label>
+                            <select id="reidTargetSelect" onchange="runReidMatch()" style="width:100%; height:34px; background:#040711; border:1px solid #334155; color:#fff; border-radius:6px; padding:0 8px; font-family:'JetBrains Mono',monospace; font-size:11px;">
+                                <option value="suspect_red">Suspect Alpha: Red Jacket, Dark Trousers, Black Cap</option>
+                                <option value="vehicle_scorpio">Vehicle Bravo: Black Scorpio SUV (GJ-01-XX-9921)</option>
+                                <option value="person_blue">Suspect Charlie: Blue Denim Shirt & Backpack</option>
+                            </select>
+                        </div>
+                        <button class="btn-primary" onclick="runReidMatch()" style="width:100%;">🧬 Search Cross-Camera ReID Gallery</button>
+                    </div>
+
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>TARGET APPEARANCE SIGNATURE</span></div>
+                        <div style="font-size:11px; color:#94a3b8; line-height:1.5;" id="reidSignatureDesc">
+                            Feature Vector: 512-dimensional normalized Euclidean embedding.<br>
+                            Camera Gallery: 30 Sentinel Gujarat nodes active.
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>CROSS-DISTRICT MATCH RANKINGS</span><span style="color:#38bdf8;">COSINE SIMILARITY</span></div>
+                        <div class="ai-output-box" id="reidOutputResults">Click "Search Cross-Camera ReID Gallery" to calculate similarity...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: Contextual VLM Scene Analyzer -->
+        <div class="ai-tab-pane" id="tab-vlm">
+            <div class="ai-grid-2">
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>VISION-LANGUAGE INCIDENT REASONING</span><span style="color:#10b981;">Contextual VLM</span></div>
+                        <div style="margin-bottom:8px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:4px;">Surveillance Incident Context / Prompt:</label>
+                            <textarea id="vlmContextInput" style="width:100%; height:75px; background:#040711; border:1px solid #334155; color:#fff; border-radius:6px; padding:8px; font-family:'JetBrains Mono',monospace; font-size:11px; resize:none;">Red vehicle speeding through SG Highway Toll during curfew hours with concealed license plate</textarea>
+                        </div>
+
+                        <div style="margin-bottom:10px;">
+                            <span style="font-size:10px; color:#64748b; display:block; margin-bottom:4px;">INCIDENT PRESETS:</span>
+                            <span class="quick-chip" onclick="setVlmPrompt('Red vehicle speeding through SG Highway Toll during curfew hours with concealed license plate')">🚨 Night Curfew Breach</span>
+                            <span class="quick-chip" onclick="setVlmPrompt('Suspicious group of 3 individuals loitering near perimeter transformer fence at 02:30 AM')">⚠️ Perimeter Loitering</span>
+                            <span class="quick-chip" onclick="setVlmPrompt('Motorcycle collision with pedestrian on Janpath Road; rider fleeing North towards Sabarmati')">🚨 Hit-and-Run Incident</span>
+                        </div>
+
+                        <button class="btn-primary" onclick="runVlmAnalysis()" style="width:100%;">👁️ Analyze Scene with VLM</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>VLM SITUATIONAL AWARENESS BRIEF</span><span id="vlmThreatBadge" style="color:#ef4444;">THREAT: HIGH</span></div>
+                        <div class="ai-output-box" id="vlmOutputBrief">Click "Analyze Scene with VLM" to generate situational assessment...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 6: Police Copilot Agent -->
+        <div class="ai-tab-pane" id="tab-copilot">
+            <div class="ai-grid-2">
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>POLICE COPILOT AUTONOMOUS AGENT</span><span style="color:#10b981;">LLM Tool-Calling Engine</span></div>
+                        <div style="margin-bottom:8px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:4px;">Dispatcher / Officer Natural Language Query:</label>
+                            <textarea id="copilotQueryInput" style="width:100%; height:75px; background:#040711; border:1px solid #334155; color:#fff; border-radius:6px; padding:8px; font-family:'JetBrains Mono',monospace; font-size:11px; resize:none;">Locate black Scorpio GJ-01-XX-9921 last seen near Chiman Bhai Bridge and dispatch intercept unit</textarea>
+                        </div>
+
+                        <div style="margin-bottom:10px;">
+                            <span style="font-size:10px; color:#64748b; display:block; margin-bottom:4px;">QUERY PRESETS:</span>
+                            <span class="quick-chip" onclick="setCopilotQuery('Locate black Scorpio GJ-01-XX-9921 last seen near Chiman Bhai Bridge and dispatch intercept unit')">🚨 Track Wanted Scorpio</span>
+                            <span class="quick-chip" onclick="setCopilotQuery('Find white Swift involved in robbery near Navrangpura between 8 PM and 10 PM')">🔍 Correlate Robbery Timeline</span>
+                            <span class="quick-chip" onclick="setCopilotQuery('Alert Gandhinagar and Sanand Toll gates for fleeing suspect on SG Highway')">📢 Broadcast Intercept Order</span>
+                        </div>
+
+                        <button class="btn-primary" onclick="runCopilotInvestigation()" style="width:100%;">🤖 Execute Copilot Investigation</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="ai-card">
+                        <div class="ai-card-title"><span>TACTICAL DECISION & TIMELINE</span><span id="copilotConfidence" style="color:#34d399;">CONF: 93.0%</span></div>
+                        <div class="ai-output-box" id="copilotOutputPlan">Click "Execute Copilot Investigation" to generate operational dispatch...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- CCTV Tactical Modal -->
+<div class="modal-overlay" id="cctvModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div>
+                <h3 id="cctvTitle">LIVE CCTV FEED // CAM_001</h3>
+                <span id="cctvLocText" style="font-size:10px; color:#94a3b8; font-family:'JetBrains Mono',monospace;">LOCATION: GUJARAT SURVEILLANCE NODE</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button id="btnModeLive" onclick="setPlayerMode('live')" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; background:#ef4444; color:white; border:none; cursor:pointer;">📡 Sentinel Stream</button>
+                <button id="btnModeSim" onclick="setPlayerMode('sim')" style="padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; background:#2563eb; color:white; border:none; cursor:pointer;">🤖 Tactical AI Feed</button>
+                <button class="modal-close" onclick="closeCctvModal()">&times;</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="cctv-screen">
+                <!-- 1. Live Remote Stream Frame -->
+                <iframe id="cctvIframe" src="" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; z-index:1;" allow="autoplay"></iframe>
+                
+                <!-- 2. Interactive Real-Time AI Canvas Simulation -->
+                <canvas id="cctvCanvas" width="800" height="440" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; background:#0a0f1d; display:none;"></canvas>
+
+                <!-- 3. HUD Overlay -->
+                <div class="cctv-hud-top" style="position:relative; z-index:10; pointer-events:none;">
+                    <div><span class="rec-dot"></span><span id="feedModeBadge">LIVE AI INGESTION • 1080P/30FPS</span></div>
+                    <div id="cctvTimestamp">--:--:--</div>
+                </div>
+                
+                <div class="ai-overlay" id="aiOverlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5;">
+                    <div class="ai-box" id="aiBox1" style="top: 30%; left: 38%; width: 26%; height: 32%;">
+                        <div>VEHICLE [98.2%]</div>
+                        <div style="color: #6ee7b7; font-size: 9px;">TRACK ID: #104</div>
+                        <div style="color: #6ee7b7; font-size: 9px;">PLATE: GJ-01-AB-1234</div>
+                    </div>
+                    <div class="ai-box alert" id="aiBox2" style="top: 45%; right: 18%; width: 18%; height: 38%;">
+                        <div>⚠️ PERSON [94.6%]</div>
+                        <div style="font-size: 9px;">WATCHLIST MATCH</div>
+                    </div>
+                </div>
+                
+                <div class="cctv-hud-top" style="background: rgba(0,0,0,0.85); position:relative; z-index:10; margin-top:auto; pointer-events:none;">
+                    <div id="cctvMetaText">JURISDICTION: GUJARAT POLICE SURVEILLANCE</div>
+                    <div id="cctvEngineText">AI ECOSYSTEM: YOLOv8 + ByteTrack + FastReID + ANPR OCR</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Live Clock
+setInterval(() => {
+    const now = new Date();
+    document.getElementById('liveClock').textContent = now.toTimeString().split(' ')[0] + ' IST';
+    const ts = document.getElementById('cctvTimestamp');
+    if (ts) ts.textContent = now.toISOString().replace('T', ' ').substring(0, 19);
+}, 1000);
+
+// Camera Database (50 nodes with directions across Ahmedabad)
+const cameraData = [
+    {
+        "camera_id": "CAM_SEN_001",
+        "name": "Camera 1 - Chiman Bhai Bridge",
+        "latitude": 23.0583,
+        "longitude": 72.5833,
+        "district": "Ahmedabad",
+        "police_station": "Sabarmati PS",
+        "road_name": "Chiman Bhai Bridge Corridor",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/1/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/1"
+    },
+    {
+        "camera_id": "CAM_SEN_002",
+        "name": "Camera 2 - Janpath",
+        "latitude": 23.0612,
+        "longitude": 72.5801,
+        "district": "Ahmedabad",
+        "police_station": "Sabarmati PS",
+        "road_name": "Janpath Road Junction",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/2/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/2"
+    },
+    {
+        "camera_id": "CAM_SEN_003",
+        "name": "Camera 3 - ONGC Office",
+        "latitude": 23.1028,
+        "longitude": 72.5856,
+        "district": "Ahmedabad",
+        "police_station": "Chandkheda PS",
+        "road_name": "ONGC Office Marg",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/3/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/3"
+    },
+    {
+        "camera_id": "CAM_SEN_004",
+        "name": "Camera 4 - Paldi Circle",
+        "latitude": 23.0135,
+        "longitude": 72.5624,
+        "district": "Ahmedabad",
+        "police_station": "Paldi PS",
+        "road_name": "Paldi Crossroad",
+        "direction": "South",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/4/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/4"
+    },
+    {
+        "camera_id": "CAM_SEN_005",
+        "name": "Camera 5 - Visat Teen Rasta",
+        "latitude": 23.0945,
+        "longitude": 72.5882,
+        "district": "Ahmedabad",
+        "police_station": "Sabarmati PS",
+        "road_name": "Visat Teen Rasta Circle",
+        "direction": "West",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/5/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/5"
+    },
+    {
+        "camera_id": "CAM_SEN_006",
+        "name": "Camera 6 - Timbavadi Gate",
+        "latitude": 21.5167,
+        "longitude": 70.45,
+        "district": "Junagadh",
+        "police_station": "Junagadh 'A' Div PS",
+        "road_name": "Timbavadi Gate Chowk",
+        "direction": "South",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/6/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/6"
+    },
+    {
+        "camera_id": "CAM_SEN_007",
+        "name": "Camera 7 - Hero Showroom Veraval",
+        "latitude": 20.9,
+        "longitude": 70.3667,
+        "district": "Gir Somnath",
+        "police_station": "Veraval PS",
+        "road_name": "National Highway 51 Veraval",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/7/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/7"
+    },
+    {
+        "camera_id": "CAM_SEN_008",
+        "name": "Camera 8 - Majewadi Gate",
+        "latitude": 21.528,
+        "longitude": 70.463,
+        "district": "Junagadh",
+        "police_station": "Junagadh 'B' Div PS",
+        "road_name": "Majewadi Gate Entry",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/8/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/8"
+    },
+    {
+        "camera_id": "CAM_SEN_009",
+        "name": "Camera 9 - New Bypass Circle",
+        "latitude": 21.505,
+        "longitude": 70.478,
+        "district": "Junagadh",
+        "police_station": "Junagadh Rural PS",
+        "road_name": "Junagadh Bypass Ring Road",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/9/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/9"
+    },
+    {
+        "camera_id": "CAM_SEN_010",
+        "name": "Camera 10 - Char Chowk Road",
+        "latitude": 21.521,
+        "longitude": 70.459,
+        "district": "Junagadh",
+        "police_station": "Junagadh 'A' Div PS",
+        "road_name": "Char Chowk Road Axis",
+        "direction": "West",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/10/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/10"
+    },
+    {
+        "camera_id": "CAM_SEN_011",
+        "name": "Camera 11 - Dolatpara",
+        "latitude": 21.542,
+        "longitude": 70.471,
+        "district": "Junagadh",
+        "police_station": "Junagadh 'C' Div PS",
+        "road_name": "Dolatpara Industrial Corridor",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/11/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/11"
+    },
+    {
+        "camera_id": "CAM_SEN_012",
+        "name": "Camera 12 - Tri Mandir Adalaj",
+        "latitude": 23.1667,
+        "longitude": 72.5833,
+        "district": "Gandhinagar",
+        "police_station": "Adalaj PS",
+        "road_name": "Adalaj Tollnaka Expressway",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/12/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/12"
+    },
+    {
+        "camera_id": "CAM_SEN_013",
+        "name": "Camera 13 - CN Vidhyalaya",
+        "latitude": 23.021,
+        "longitude": 72.548,
+        "district": "Ahmedabad",
+        "police_station": "Ellisbridge PS",
+        "road_name": "Ambawadi Main Road",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/13/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/13"
+    },
+    {
+        "camera_id": "CAM_SEN_014",
+        "name": "Camera 14 - Delight",
+        "latitude": 23.035,
+        "longitude": 72.56,
+        "district": "Ahmedabad",
+        "police_station": "Navrangpura PS",
+        "road_name": "University Road Junction",
+        "direction": "South",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/14/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/14"
+    },
+    {
+        "camera_id": "CAM_SEN_015",
+        "name": "Camera 15 - Suvidha Park",
+        "latitude": 23.018,
+        "longitude": 72.535,
+        "district": "Ahmedabad",
+        "police_station": "Satellite PS",
+        "road_name": "Suvidha Park Crossroad",
+        "direction": "West",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/15/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/15"
+    },
+    {
+        "camera_id": "CAM_SEN_016",
+        "name": "Camera 16 - Visat P2",
+        "latitude": 23.097,
+        "longitude": 72.589,
+        "district": "Ahmedabad",
+        "police_station": "Sabarmati PS",
+        "road_name": "Visat Perimeter Sector 2",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/16/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/16"
+    },
+    {
+        "camera_id": "CAM_SEN_017",
+        "name": "Camera 17 - Rajkot Bus Port",
+        "latitude": 22.3039,
+        "longitude": 70.8022,
+        "district": "Rajkot",
+        "police_station": "Rajkot 'A' Div PS",
+        "road_name": "Central Bus Port Terminal",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/17/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/17"
+    },
+    {
+        "camera_id": "CAM_SEN_018",
+        "name": "Camera 18 - Rajkot CCTV",
+        "latitude": 22.298,
+        "longitude": 70.795,
+        "district": "Rajkot",
+        "police_station": "Pradhyuman Nagar PS",
+        "road_name": "Trikon Baug Junction",
+        "direction": "South",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/18/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/18"
+    },
+    {
+        "camera_id": "CAM_SEN_019",
+        "name": "Camera 19 - Khaparia Gram Panchayat",
+        "latitude": 20.8167,
+        "longitude": 72.9833,
+        "district": "Navsari",
+        "police_station": "Gandevi PS",
+        "road_name": "Khaparia Panchayat Marg",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/19/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/19"
+    },
+    {
+        "camera_id": "CAM_SEN_020",
+        "name": "Camera 20 - Mohanpura",
+        "latitude": 23.031,
+        "longitude": 72.592,
+        "district": "Ahmedabad",
+        "police_station": "Kalupur PS",
+        "road_name": "Mohanpura Relief Road",
+        "direction": "West",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/20/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/20"
+    },
+    {
+        "camera_id": "CAM_SEN_021",
+        "name": "Camera 21 - Patan Dethali",
+        "latitude": 23.85,
+        "longitude": 72.12,
+        "district": "Patan",
+        "police_station": "Patan City PS",
+        "road_name": "Dethali Char Rasta",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/21/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/21"
+    },
+    {
+        "camera_id": "CAM_SEN_022",
+        "name": "Camera 22 - BK Mervada",
+        "latitude": 24.17,
+        "longitude": 72.43,
+        "district": "Banaskantha",
+        "police_station": "Palanpur PS",
+        "road_name": "Mervada Tran Rasta NH-27",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/22/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/22"
+    },
+    {
+        "camera_id": "CAM_SEN_023",
+        "name": "Camera 23 - Kheram",
+        "latitude": 22.75,
+        "longitude": 72.68,
+        "district": "Kheda",
+        "police_station": "Kheda Town PS",
+        "road_name": "Kheram Circle NH-48",
+        "direction": "South",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/23/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/23"
+    },
+    {
+        "camera_id": "CAM_SEN_024",
+        "name": "Camera 24 - Dehgam",
+        "latitude": 23.167,
+        "longitude": 72.817,
+        "district": "Gandhinagar",
+        "police_station": "Dehgam PS",
+        "road_name": "Dehgam Central Crossroad",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/24/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/24"
+    },
+    {
+        "camera_id": "CAM_SEN_025",
+        "name": "Camera 25 - Dhanori",
+        "latitude": 20.85,
+        "longitude": 73.01,
+        "district": "Navsari",
+        "police_station": "Gandevi PS",
+        "road_name": "Dhanori State Highway",
+        "direction": "West",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/25/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/25"
+    },
+    {
+        "camera_id": "CAM_SEN_026",
+        "name": "Camera 26 - Tankal",
+        "latitude": 20.78,
+        "longitude": 73.05,
+        "district": "Navsari",
+        "police_station": "Chikhli PS",
+        "road_name": "Tankal Chikhli Road",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/26/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/26"
+    },
+    {
+        "camera_id": "CAM_SEN_027",
+        "name": "Camera 27 - Bilimora Station",
+        "latitude": 20.76,
+        "longitude": 72.96,
+        "district": "Navsari",
+        "police_station": "Bilimora PS",
+        "road_name": "Bilimora Railway Station Road",
+        "direction": "South",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/27/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/27"
+    },
+    {
+        "camera_id": "CAM_SEN_028",
+        "name": "Camera 28 - Bilimora Market",
+        "latitude": 20.765,
+        "longitude": 72.968,
+        "district": "Navsari",
+        "police_station": "Bilimora PS",
+        "road_name": "Bilimora Town Market Circle",
+        "direction": "East",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/28/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/28"
+    },
+    {
+        "camera_id": "CAM_SEN_029",
+        "name": "Camera 29 - Bilimora Coastal",
+        "latitude": 20.77,
+        "longitude": 72.975,
+        "district": "Navsari",
+        "police_station": "Bilimora PS",
+        "road_name": "Bilimora Coastal Highway",
+        "direction": "North",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/29/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/29"
+    },
+    {
+        "camera_id": "CAM_SEN_030",
+        "name": "Camera 30 - Gandhidham Rambaugh",
+        "latitude": 23.0753,
+        "longitude": 70.1337,
+        "district": "Kutch",
+        "police_station": "Gandhidham 'A' Div PS",
+        "road_name": "Rambaugh Road Sector 2",
+        "direction": "West",
+        "status": "Active",
+        "hls_url": "https://live.sentinelgujarat.in/live/stream/30/index.m3u8",
+        "rtsp_url": "rtsp://live.corp8.cloud:8554/stream/30"
+    }
+];
+
+let mapObject = null;
+let markerLayer = null;
+let fovLayer = null;
+let heatLayer = null;
+let jurisdictionLayer = null;
+let pursuitLayer = null;
+let searchCircleLayer = null;
+let searchMarkerLayer = null;
+const markerById = {};
+
+// Direction to Azimuth mapping (for Field of View Cones)
+const directionAngles = {
+    "North": 0,
+    "East": 90,
+    "South": 180,
+    "West": 270
+};
+
+function getFovCoordinates(lat, lon, direction, rangeMeters = 160, fovAngle = 60) {
+    const centerAngle = directionAngles[direction] || 0;
+    const halfAngle = fovAngle / 2;
+    const startAngle = (centerAngle - halfAngle) * Math.PI / 180;
+    const endAngle = (centerAngle + halfAngle) * Math.PI / 180;
+    const midAngle = centerAngle * Math.PI / 180;
+
+    const latOffset = rangeMeters / 111320;
+    const lonOffset = rangeMeters / (111320 * Math.cos(lat * Math.PI / 180));
+
+    const p1 = [lat, lon];
+    const p2 = [lat + latOffset * Math.cos(startAngle), lon + lonOffset * Math.sin(startAngle)];
+    const p3 = [lat + latOffset * 1.15 * Math.cos(midAngle), lon + lonOffset * 1.15 * Math.sin(midAngle)];
+    const p4 = [lat + latOffset * Math.cos(endAngle), lon + lonOffset * Math.sin(endAngle)];
+
+    return [p1, p2, p3, p4];
+}
+
+function initMap() {
+    // 1. Tactical Base Maps (Clean, high-performance, no watermark)
+    const darkTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, DeLorme, NAVTEQ &copy; OpenStreetMap',
+        maxZoom: 16
+    });
+
+    const streetTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+    });
+
+    mapObject = L.map("map", {
+        center: [23.0225, 72.5714],
+        zoom: 12,
+        layers: [darkTiles]
+    });
+
+    // 2. Initialize Layer Groups
+    markerLayer = L.layerGroup().addTo(mapObject);
+    fovLayer = L.layerGroup().addTo(mapObject);
+    jurisdictionLayer = L.layerGroup().addTo(mapObject);
+    pursuitLayer = L.layerGroup().addTo(mapObject);
+    searchCircleLayer = L.layerGroup().addTo(mapObject);
+    searchMarkerLayer = L.layerGroup().addTo(mapObject);
+
+    // 3. Create Heatmap Layer
+    const heatPoints = cameraData.map(c => [c.latitude, c.longitude, c.status === "Active" ? 0.9 : 0.3]);
+    heatLayer = L.heatLayer(heatPoints, {
+        radius: 28,
+        blur: 18,
+        maxZoom: 14,
+        gradient: {0.2: '#3b82f6', 0.5: '#10b981', 0.8: '#f59e0b', 1.0: '#ef4444'}
+    });
+
+    // 4. Create Ahmedabad Police Jurisdiction Boundaries (Polygons)
+    const zones = [
+        {
+            name: "Central Zone (Navrangpura - Ellisbridge)",
+            color: "#3b82f6",
+            coords: [[23.010, 72.555], [23.045, 72.560], [23.040, 72.595], [23.005, 72.590]]
+        },
+        {
+            name: "West Zone (SG Highway - Bodakdev)",
+            color: "#a855f7",
+            coords: [[23.040, 72.510], [23.100, 72.530], [23.090, 72.590], [23.035, 72.560]]
+        },
+        {
+            name: "North Zone (Sabarmati - Motera - Airport)",
+            color: "#f59e0b",
+            coords: [[23.120, 72.580], [23.180, 72.630], [23.150, 72.700], [23.090, 72.620]]
+        }
+    ];
+
+    zones.forEach(z => {
+        const poly = L.polygon(z.coords, {
+            color: z.color,
+            fillColor: z.color,
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: '4, 4'
+        }).addTo(jurisdictionLayer);
+        poly.bindPopup(`<b>Police Jurisdiction:</b> ${z.name}`);
+    });
+
+    // 5. Populate Markers and FOV Cones
+    cameraData.forEach(function(camera, index) {
+        createMarkerAndFov(camera, index + 1);
+    });
+
+    // 6. Layer Controls
+    const baseLayers = {
+        "🌙 Tactical Dark": darkTiles,
+        "☀️ Standard Street": streetTiles
+    };
+    const overlays = {
+        "📹 CCTV Cameras": markerLayer,
+        "👁️ Field of View (FOV)": fovLayer,
+        "🛡️ Police Jurisdictions": jurisdictionLayer,
+        "🔥 Surveillance Heatmap": heatLayer,
+        "🚨 Suspect Pursuit": pursuitLayer
+    };
+    L.control.layers(baseLayers, overlays, { collapsed: false, position: 'bottomleft' }).addTo(mapObject);
+
+    updateStats();
+    findNearbyCameras(); // Initial scan
+}
+
+const districtCenters = {
+    "Ahmedabad": { lat: 23.0583, lon: 72.5833, zoom: 12, radius: 20.0 },
+    "Junagadh": { lat: 21.5222, lon: 70.4579, zoom: 13, radius: 25.0 },
+    "Gandhinagar": { lat: 23.1667, lon: 72.6369, zoom: 12, radius: 25.0 },
+    "Rajkot": { lat: 22.3039, lon: 70.8022, zoom: 13, radius: 25.0 },
+    "Navsari": { lat: 20.8167, lon: 72.9833, zoom: 12, radius: 30.0 },
+    "Gir Somnath": { lat: 20.9000, lon: 70.3667, zoom: 13, radius: 25.0 },
+    "Patan": { lat: 23.8500, lon: 72.1200, zoom: 13, radius: 25.0 },
+    "Banaskantha": { lat: 24.1700, lon: 72.4300, zoom: 12, radius: 30.0 },
+    "Kheda": { lat: 22.7500, lon: 72.6800, zoom: 12, radius: 25.0 },
+    "Kutch": { lat: 23.0753, lon: 70.1337, zoom: 12, radius: 35.0 },
+    "Mehsana": { lat: 23.5979, lon: 72.3791, zoom: 11, radius: 45.0 },
+    "Surat": { lat: 21.1702, lon: 72.8311, zoom: 12, radius: 25.0 },
+    "Vadodara": { lat: 22.3072, lon: 73.1812, zoom: 12, radius: 25.0 },
+    "Bhavnagar": { lat: 21.7645, lon: 72.1519, zoom: 13, radius: 25.0 },
+    "Jamnagar": { lat: 22.4707, lon: 70.0577, zoom: 13, radius: 25.0 },
+    "Statewide": { lat: 22.5000, lon: 71.5000, zoom: 8, radius: 300.0 }
+};
+
+function onDistrictChange(district) {
+    const info = districtCenters[district] || districtCenters["Statewide"];
+    document.getElementById("lat").value = info.lat;
+    document.getElementById("lon").value = info.lon;
+    if (info.radius) {
+        document.getElementById("radius").value = info.radius.toFixed(1);
+    }
+    if (mapObject) {
+        mapObject.flyTo([info.lat, info.lon], info.zoom, { duration: 1.2 });
+    }
+    findNearbyCameras();
+}
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, function(ch) {
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[ch];
+    });
+}
+
+function markerColor(status) {
+    return String(status).trim().toLowerCase() === "active" ? "#10b981" : "#ef4444";
+}
+
+function createMarkerAndFov(camera, number) {
+    const isAct = String(camera.status).trim().toLowerCase() === "active";
+    
+    // Custom Styled Number Pin
+    const icon = L.divIcon({
+        className: "",
+        html: `<div class='number-marker' style='background:${markerColor(camera.status)}'><span>${number}</span></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -26]
+    });
+
+    const marker = L.marker([camera.latitude, camera.longitude], {icon: icon}).addTo(markerLayer);
+    
+    marker.bindPopup(`
+        <div style="font-family:'Inter',sans-serif; min-width:180px;">
+            <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; justify-content:space-between;">
+                <span>${escapeHtml(camera.camera_id)}</span>
+                <span style="color:${isAct?'#10b981':'#ef4444'}; font-size:10px;">${escapeHtml(camera.status)}</span>
+            </div>
+            <div style="font-size:11px; color:#475467; margin-bottom:2px;"><b>Road:</b> ${escapeHtml(camera.road_name)}</div>
+            <div style="font-size:11px; color:#475467; margin-bottom:2px;"><b>PS:</b> ${escapeHtml(camera.police_station)}</div>
+            <div style="font-size:11px; color:#475467; margin-bottom:8px;"><b>FOV Direction:</b> ${escapeHtml(camera.direction)}</div>
+            <button onclick="openCctvModal('${escapeHtml(camera.camera_id)}', '${escapeHtml(camera.road_name)}')" style="width:100%; background:#2563eb; color:white; border:none; padding:6px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">
+                ▶ View Live AI Stream
+            </button>
+        </div>
+    `);
+    markerById[camera.camera_id] = marker;
+
+    // Direction Field of View (FOV) Cone
+    if (camera.direction && isAct) {
+        const coneCoords = getFovCoordinates(camera.latitude, camera.longitude, camera.direction);
+        const fovPolygon = L.polygon(coneCoords, {
+            color: '#10b981',
+            fillColor: '#10b981',
+            fillOpacity: 0.22,
+            weight: 1,
+            dashArray: '2, 3'
+        }).addTo(fovLayer);
+        fovPolygon.bindPopup(`<b>${camera.camera_id} FOV:</b> Facing ${camera.direction}`);
+    }
+}
+
+function toggleFovCones() {
+    const btn = document.getElementById('btnFovToggle');
+    if (mapObject.hasLayer(fovLayer)) {
+        mapObject.removeLayer(fovLayer);
+        btn.classList.remove('active');
+    } else {
+        mapObject.addLayer(fovLayer);
+        btn.classList.add('active');
+    }
+}
+
+function updateStats() {
+    const active = cameraData.filter(c => String(c.status).trim().toLowerCase() === "active").length;
+    const inactive = cameraData.filter(c => String(c.status).trim().toLowerCase() === "inactive").length;
+    document.getElementById("totalCount").textContent = cameraData.length;
+    document.getElementById("activeCount").textContent = active;
+    document.getElementById("inactiveCount").textContent = inactive;
+}
+
+function distanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function statusClass(status) {
+    const s = String(status).trim().toLowerCase();
+    return s === "active" ? "status-active" : "status-inactive";
+}
+
+function findNearbyCameras() {
+    const lat = parseFloat(document.getElementById("lat").value);
+    const lon = parseFloat(document.getElementById("lon").value);
+    const radius = parseFloat(document.getElementById("radius").value);
+    const selectedStatus = document.getElementById("statusFilter").value;
+    const results = document.getElementById("results");
+    const details = document.getElementById("details");
+    details.style.display = "none";
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(radius) || radius <= 0) {
+        results.innerHTML = "<div class='empty'>Please enter valid coordinates and a radius greater than 0.</div>";
+        document.getElementById("nearbyCount").textContent = "0";
+        return;
+    }
+
+    // 1. Draw Visual Search Perimeter & Center Marker
+    searchCircleLayer.clearLayers();
+    searchMarkerLayer.clearLayers();
+
+    const centerIcon = L.divIcon({
+        className: '',
+        html: "<div class='search-origin-marker'></div>",
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
+    });
+    L.marker([lat, lon], {icon: centerIcon}).addTo(searchMarkerLayer).bindPopup("<b>Target Perimeter Origin</b><br>Lat: " + lat.toFixed(4) + ", Lon: " + lon.toFixed(4));
+
+    const perimeterCircle = L.circle([lat, lon], {
+        radius: radius * 1000,
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.12,
+        weight: 2,
+        dashArray: '6, 6'
+    }).addTo(searchCircleLayer);
+
+    mapObject.flyToBounds(perimeterCircle.getBounds(), { padding: [40, 40], duration: 0.8 });
+
+    // 2. Filter Cameras by Haversine Distance
+    const nearby = cameraData
+        .map(function(camera) {
+            return { camera: camera, distance: distanceKm(lat, lon, camera.latitude, camera.longitude) };
+        })
+        .filter(function(item) {
+            return selectedStatus === "All" ||
+                String(item.camera.status).trim().toLowerCase() === selectedStatus.toLowerCase();
+        })
+        .filter(function(item) {
+            return item.distance <= radius;
+        })
+        .sort(function(a, b) {
+            return a.distance - b.distance;
+        });
+
+    document.getElementById("nearbyCount").textContent = nearby.length;
+    document.getElementById("resultHeading").textContent = "Perimeter Nodes";
+    document.getElementById("resultSummary").textContent = `${nearby.length} nodes · ${radius} km`;
+
+    let html = "";
+
+    if (nearby.length === 0) {
+        html = "<div class='empty'>No matching camera nodes in this perimeter radius.</div>";
+    } else {
+        nearby.forEach(function(item, index) {
+            const camera = item.camera;
+            html += `
+                <div class='result-card' onclick='showCameraDetails("${escapeHtml(camera.camera_id)}")'>
+                    <div class='result-number'>${index + 1}</div>
+                    <div class='result-main'>
+                        <div class='result-top'>
+                            <span class='camera-name'>${escapeHtml(camera.camera_id)}</span>
+                            <span class='distance'>${item.distance.toFixed(2)} km</span>
+                        </div>
+                        <div class='meta'>${escapeHtml(camera.road_name)} • ${escapeHtml(camera.police_station)}</div>
+                        <div class='tags'>
+                            <span class='status ${statusClass(camera.status)}'>${escapeHtml(camera.status)}</span>
+                            <span class='direction-badge'>FOV: ${escapeHtml(camera.direction)}</span>
+                        </div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    results.innerHTML = html;
+}
+
+function showCameraDetails(cameraId) {
+    const camera = cameraData.find(c => c.camera_id === cameraId);
+    if (!camera) return;
+
+    const lat = parseFloat(document.getElementById("lat").value);
+    const lon = parseFloat(document.getElementById("lon").value);
+    let distanceText = "—";
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        distanceText = distanceKm(lat, lon, camera.latitude, camera.longitude).toFixed(2) + " km";
+    }
+
+    const details = document.getElementById("details");
+    details.style.display = "block";
+    details.innerHTML = `
+        <div class='details-title'>
+            <span>${escapeHtml(camera.camera_id)}</span>
+            <span class='status ${statusClass(camera.status)}'>${escapeHtml(camera.status)}</span>
+        </div>
+        <div class='detail-row'><b>Road / Corridor:</b> <span>${escapeHtml(camera.road_name)}</span></div>
+        <div class='detail-row'><b>Jurisdiction PS:</b> <span>${escapeHtml(camera.police_station)}</span></div>
+        <div class='detail-row'><b>Field of View:</b> <span>${escapeHtml(camera.direction)} Facing</span></div>
+        <div class='detail-row'><b>Distance to Target:</b> <span>${distanceText}</span></div>
+        <div class='detail-row'><b>Coordinates:</b> <span>${camera.latitude.toFixed(4)}, ${camera.longitude.toFixed(4)}</span></div>
+        <div class='detail-actions'>
+            <button class='btn-primary' onclick='focusCamera("${escapeHtml(camera.camera_id)}")'>📍 Pinpoint Map</button>
+            <button class='btn-secondary' onclick='closeDetails()'>✖ Close</button>
+            <button class='btn-primary btn-feed' onclick='openCctvModal("${escapeHtml(camera.camera_id)}", "${escapeHtml(camera.road_name)}")'>▶ Open Live AI Stream</button>
+        </div>
+    `;
+    details.scrollIntoView({behavior: "smooth", block: "nearest"});
+}
+
+function closeDetails() {
+    document.getElementById("details").style.display = "none";
+}
+
+function focusCamera(cameraId) {
+    const camera = cameraData.find(c => c.camera_id === cameraId);
+    if (!camera) return;
+
+    if (mapObject) mapObject.flyTo([camera.latitude, camera.longitude], 17, { duration: 0.8 });
+    if (markerById[cameraId]) markerById[cameraId].openPopup();
+}
+
+function useMyLocation() {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const userLat = position.coords.latitude;
+            const userLon = position.coords.longitude;
+            document.getElementById("lat").value = userLat.toFixed(6);
+            document.getElementById("lon").value = userLon.toFixed(6);
+            
+            // Find nearest camera distance
+            let minDistance = Infinity;
+            cameraData.forEach(c => {
+                const dist = distanceKm(userLat, userLon, c.latitude, c.longitude);
+                if (dist < minDistance) minDistance = dist;
+            });
+            
+            let curRadius = parseFloat(document.getElementById("radius").value) || 15.0;
+            if (minDistance > curRadius && minDistance < 100) {
+                document.getElementById("radius").value = (Math.ceil(minDistance / 5) * 5 + 5).toFixed(1);
+            }
+            
+            findNearbyCameras();
+        },
+        function() {
+            alert("Could not retrieve GPS position. Coordinates set manually.");
+        }
+    );
+}
+
+// Suspect Pursuit Trajectory Simulation
+function simulateSuspectPursuit() {
+    pursuitLayer.clearLayers();
+    
+    // Route hits: CAM_001 -> CAM_002 -> CAM_009 -> CAM_010 -> CAM_018
+    const pursuitPoints = [
+        { id: "CAM_001", lat: 23.0225, lon: 72.5714, time: "21:10:00" },
+        { id: "CAM_002", lat: 23.0250, lon: 72.5700, time: "21:14:30" },
+        { id: "CAM_009", lat: 23.0450, lon: 72.5900, time: "21:20:15" },
+        { id: "CAM_010", lat: 23.0500, lon: 72.6000, time: "21:23:40" },
+        { id: "CAM_018", lat: 23.0900, lon: 72.6000, time: "21:28:10" }
+    ];
+
+    const latlngs = pursuitPoints.map(p => [p.lat, p.lon]);
+
+    // Draw Glowing Red Pursuit Polyline
+    const polyline = L.polyline(latlngs, {
+        color: '#ef4444',
+        weight: 4,
+        opacity: 0.85,
+        dashArray: '8, 6'
+    }).addTo(pursuitLayer);
+
+    pursuitPoints.forEach((p, idx) => {
+        const marker = L.circleMarker([p.lat, p.lon], {
+            radius: idx === pursuitPoints.length - 1 ? 9 : 6,
+            fillColor: idx === pursuitPoints.length - 1 ? '#ef4444' : '#f59e0b',
+            color: '#fff',
+            weight: 2,
+            fillOpacity: 0.9
+        }).addTo(pursuitLayer);
+
+        marker.bindPopup(`
+            <b>🚨 ANPR HIT #${idx+1}</b><br>
+            Node: ${p.id}<br>
+            Time: ${p.time} IST<br>
+            Vehicle: GJ-01-BK-9921
+        `);
+    });
+
+    mapObject.flyToBounds(polyline.getBounds(), { padding: [50, 50], duration: 1.2 });
+    document.getElementById('alertText').textContent = "PURSUIT ACTIVE: Target moving North on SG Highway [CAM_018]";
+}
+
+function clearPursuit() {
+    pursuitLayer.clearLayers();
+    document.getElementById('alertText').textContent = "GRID NORMAL: Surveillance monitoring 50 camera nodes";
+}
+
+// CCTV Modal & AI Canvas Engine
+let activeSimAnim = null;
+let currentActiveCamId = "CAM_SEN_001";
+let currentActiveRoad = "CHIMAN BHAI BRIDGE CORRIDOR";
+
+function setPlayerMode(mode) {
+    const iframe = document.getElementById('cctvIframe');
+    const canvas = document.getElementById('cctvCanvas');
+    const aiOverlay = document.getElementById('aiOverlay');
+    const badge = document.getElementById('feedModeBadge');
+    const btnLive = document.getElementById('btnModeLive');
+    const btnSim = document.getElementById('btnModeSim');
+
+    if (mode === 'live') {
+        canvas.style.display = 'none';
+        iframe.style.display = 'block';
+        aiOverlay.style.display = 'block';
+        badge.textContent = 'LIVE REC • REMOTE SENTINEL FEED';
+        btnLive.style.opacity = '1';
+        btnSim.style.opacity = '0.6';
+        if (activeSimAnim) { cancelAnimationFrame(activeSimAnim); activeSimAnim = null; }
+        
+        let numId = "1";
+        if (currentActiveCamId.startsWith("CAM_SEN_")) {
+            numId = parseInt(currentActiveCamId.replace("CAM_SEN_", ""), 10).toString();
+        }
+        iframe.src = `https://live.sentinelgujarat.in/camera/${numId}`;
+    } else {
+        iframe.style.display = 'none';
+        iframe.src = "";
+        canvas.style.display = 'block';
+        aiOverlay.style.display = 'none'; // Canvas renders its own dynamic AI telemetry
+        badge.textContent = 'AI SIMULATION • FAST-INFERENCE VISION HUD';
+        btnSim.style.opacity = '1';
+        btnLive.style.opacity = '0.6';
+        startAiCanvasSimulation();
+    }
+}
+
+function startAiCanvasSimulation() {
+    const canvas = document.getElementById('cctvCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = 800;
+    const h = canvas.height = 440;
+
+    // Simulated traffic objects
+    const vehicles = [
+        { x: 120, y: 220, w: 140, h: 90, speed: 1.6, type: "CAR", plate: "GJ-01-AB-1234", id: "#104", conf: 0.98, color: "#10b981", isAlert: false },
+        { x: 380, y: 160, w: 180, h: 120, speed: 1.1, type: "BUS", plate: "GJ-18-Z-4491", id: "#107", conf: 0.95, color: "#3b82f6", isAlert: false },
+        { x: 620, y: 260, w: 100, h: 80, speed: 2.2, type: "MOTORCYCLE", plate: "GJ-01-XX-9921", id: "#109", conf: 0.94, color: "#ef4444", isAlert: true }
+    ];
+
+    let scanLineY = 0;
+
+    function render() {
+        // 1. Dark Urban Road Background
+        ctx.fillStyle = '#060a14';
+        ctx.fillRect(0, 0, w, h);
+
+        // Perspective Road Lines
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.35, 80); ctx.lineTo(0, h);
+        ctx.moveTo(w * 0.65, 80); ctx.lineTo(w, h);
+        ctx.moveTo(w * 0.50, 80); ctx.lineTo(w * 0.50, h);
+        ctx.stroke();
+
+        // Dashed Lane Center
+        ctx.strokeStyle = '#334155';
+        ctx.setLineDash([20, 20]);
+        ctx.beginPath();
+        ctx.moveTo(w * 0.50, 80); ctx.lineTo(w * 0.50, h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 2. Render Animated Vehicles with AI Bounding Boxes
+        vehicles.forEach(v => {
+            v.x += v.speed;
+            if (v.x > w + 50) v.x = -v.w - 50;
+
+            // Vehicle Body Shape
+            ctx.fillStyle = v.isAlert ? 'rgba(239, 68, 68, 0.25)' : 'rgba(30, 41, 59, 0.8)';
+            ctx.fillRect(v.x, v.y, v.w, v.h);
+
+            // AI Bounding Box
+            ctx.strokeStyle = v.color;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(v.x, v.y, v.w, v.h);
+
+            // Bounding Corner Accents
+            const cs = 10;
+            ctx.fillStyle = v.color;
+            ctx.fillRect(v.x - 2, v.y - 2, cs, 3); ctx.fillRect(v.x - 2, v.y - 2, 3, cs);
+            ctx.fillRect(v.x + v.w - cs + 2, v.y - 2, cs, 3); ctx.fillRect(v.x + v.w - 1, v.y - 2, 3, cs);
+            ctx.fillRect(v.x - 2, v.y + v.h - 1, cs, 3); ctx.fillRect(v.x - 2, v.y + v.h - cs + 2, 3, cs);
+            ctx.fillRect(v.x + v.w - cs + 2, v.y + v.h - 1, cs, 3); ctx.fillRect(v.x + v.w - 1, v.y + v.h - cs + 2, 3, cs);
+
+            // AI Tag Header
+            ctx.fillStyle = v.color;
+            ctx.font = 'bold 11px JetBrains Mono, monospace';
+            const tag = `${v.isAlert ? '🚨 WATCHLIST: ' : ''}${v.type} [${(v.conf * 100).toFixed(0)}%]`;
+            ctx.fillText(tag, v.x + 4, v.y - 8);
+
+            // Sub-telemetry
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`ID: ${v.id} • SPEED: ${(v.speed * 28).toFixed(1)} km/h`, v.x + 4, v.y + 16);
+            ctx.fillStyle = v.isAlert ? '#fca5a5' : '#6ee7b7';
+            ctx.fillText(`PLATE: ${v.plate}`, v.x + 4, v.y + 32);
+        });
+
+        // 3. Scanning Laser Line
+        scanLineY = (scanLineY + 2.5) % h;
+        const grad = ctx.createLinearGradient(0, scanLineY - 10, 0, scanLineY + 10);
+        grad.addColorStop(0, 'rgba(16, 185, 129, 0)');
+        grad.addColorStop(0.5, 'rgba(16, 185, 129, 0.4)');
+        grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, scanLineY - 10, w, 20);
+
+        // 4. Corner Crosshairs & Telemetry
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(20, 20, w - 40, h - 40);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillText(`CAMERA: ${currentActiveCamId} // ${currentActiveRoad.toUpperCase()}`, 30, h - 30);
+        ctx.fillText(`AI INFERENCE: 14.2ms | FPS: 30.0 | RES: 1080P`, 30, h - 15);
+
+        activeSimAnim = requestAnimationFrame(render);
+    }
+
+    if (activeSimAnim) cancelAnimationFrame(activeSimAnim);
+    activeSimAnim = requestAnimationFrame(render);
+}
+
+function openCctvModal(camId, roadName) {
+    currentActiveCamId = camId || "CAM_SEN_001";
+    currentActiveRoad = roadName || "GUJARAT SURVEILLANCE CORRIDOR";
+
+    document.getElementById('cctvTitle').textContent = `TACTICAL CCTV // ${currentActiveCamId}`;
+    document.getElementById('cctvLocText').textContent = `LOCATION: ${currentActiveRoad.toUpperCase()}`;
+    document.getElementById('cctvModal').style.display = 'flex';
+
+    // Default to Tactical AI Feed if remote stream gateway is unstable, or allow instant 1-click switch
+    setPlayerMode('sim');
+}
+
+function closeCctvModal() {
+    document.getElementById('cctvModal').style.display = 'none';
+    const iframe = document.getElementById('cctvIframe');
+    if (iframe) iframe.src = "";
+    if (activeSimAnim) {
+        cancelAnimationFrame(activeSimAnim);
+        activeSimAnim = null;
+    }
+}
+
+
+// =========================================================================
+// AI MODEL TESTING LAB CONTROLLER (6-ENGINE ECOSYSTEM)
+// =========================================================================
+
+function openAiLabModal() {
+    document.getElementById('aiLabModal').style.display = 'flex';
+    switchAiTab('yolo');
+}
+
+function closeAiLabModal() {
+    document.getElementById('aiLabModal').style.display = 'none';
+    if (byteTrackAnim) {
+        cancelAnimationFrame(byteTrackAnim);
+        byteTrackAnim = null;
+    }
+}
+
+function switchAiTab(tabName) {
+    document.querySelectorAll('.ai-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.ai-tab-pane').forEach(p => p.classList.remove('active'));
+
+    const tabBtn = Array.from(document.querySelectorAll('.ai-tab-btn')).find(b => b.textContent.toLowerCase().includes(tabName));
+    if (tabBtn) tabBtn.classList.add('active');
+
+    const pane = document.getElementById(`tab-${tabName}`);
+    if (pane) pane.classList.add('active');
+
+    if (tabName === 'yolo') renderYoloDetections();
+    else if (tabName === 'bytetrack') startByteTrackSim();
+    else if (tabName === 'anpr') runAnprScan();
+    else if (tabName === 'reid') runReidMatch();
+    else if (tabName === 'vlm') runVlmAnalysis();
+    else if (tabName === 'copilot') runCopilotInvestigation();
+}
+
+// -------------------------------------------------------------------------
+// MODEL 1: YOLOv8 Object Detection
+// -------------------------------------------------------------------------
+const yoloScenes = {
+    "junction": [
+        { cls: "BUS", conf: 0.94, x: 40, y: 50, w: 160, h: 120, color: "#3b82f6" },
+        { cls: "CAR", conf: 0.96, x: 220, y: 110, w: 110, h: 75, color: "#10b981" },
+        { cls: "PERSON", conf: 0.89, x: 350, y: 90, w: 35, h: 85, color: "#f59e0b" },
+        { cls: "MOTORCYCLE", conf: 0.91, x: 395, y: 125, w: 45, h: 55, color: "#a855f7" }
+    ],
+    "highway": [
+        { cls: "CAR", conf: 0.98, x: 60, y: 80, w: 130, h: 85, color: "#10b981" },
+        { cls: "TRUCK", conf: 0.92, x: 210, y: 40, w: 150, h: 140, color: "#3b82f6" },
+        { cls: "CAR", conf: 0.95, x: 375, y: 100, w: 75, h: 65, color: "#10b981" }
+    ],
+    "toll": [
+        { cls: "CAR", conf: 0.93, x: 120, y: 90, w: 140, h: 90, color: "#10b981" },
+        { cls: "PERSON", conf: 0.88, x: 290, y: 85, w: 35, h: 95, color: "#f59e0b" },
+        { cls: "OTHER_VEHICLE", conf: 0.79, x: 340, y: 70, w: 100, h: 110, color: "#ef4444" }
+    ]
+};
+
+function loadYoloScene(val) {
+    renderYoloDetections();
+}
+
+function renderYoloDetections() {
+    const canvas = document.getElementById('yoloCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = 460;
+    const h = canvas.height = 230;
+
+    const sceneKey = document.getElementById('yoloSceneSelect').value || 'junction';
+    const thresh = parseFloat(document.getElementById('yoloConfVal').textContent) || 0.45;
+    const detections = yoloScenes[sceneKey] || yoloScenes['junction'];
+
+    // Dark Road Background
+    ctx.fillStyle = '#090e1a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid Perspective
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(w*0.35, 30); ctx.lineTo(0, h);
+    ctx.moveTo(w*0.65, 30); ctx.lineTo(w, h);
+    ctx.stroke();
+
+    let passedDets = [];
+    detections.forEach(d => {
+        if (d.conf >= thresh) {
+            passedDets.push(d);
+            // Box
+            ctx.fillStyle = d.color + '22';
+            ctx.fillRect(d.x, d.y, d.w, d.h);
+            ctx.strokeStyle = d.color;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(d.x, d.y, d.w, d.h);
+
+            // Tag
+            ctx.fillStyle = d.color;
+            ctx.fillRect(d.x - 1, d.y - 18, ctx.measureText(`${d.cls} ${(d.conf*100).toFixed(0)}%`).width + 12, 18);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px JetBrains Mono, monospace';
+            ctx.fillText(`${d.cls} ${(d.conf*100).toFixed(0)}%`, d.x + 4, d.y - 5);
+        }
+    });
+
+    const latency = (10 + Math.random() * 4).toFixed(1);
+    document.getElementById('yoloLatency').textContent = `LATENCY: ${latency} ms`;
+
+    let log = `=== [YOLOv8 REAL-TIME DETECTION SUMMARY] ===
+`;
+    log += `Input Frame:       1280x720 RGB Keyframe
+`;
+    log += `Inference Device:  NVIDIA CUDA / PyTorch Acceleration
+`;
+    log += `Total Detected:    ${passedDets.length} objects (Filtered with IoU 0.45, Conf >= ${thresh})
+
+`;
+    passedDets.forEach((d, i) => {
+        log += `[${i+1}] ${d.cls.padEnd(14)} Conf: ${(d.conf*100).toFixed(1)}% | Box: (${d.x}, ${d.y}, ${d.x+d.w}, ${d.y+d.h})
+`;
+    });
+    document.getElementById('yoloOutputText').textContent = log;
+}
+
+// -------------------------------------------------------------------------
+// MODEL 2: ByteTrack Multi-Object Tracking
+// -------------------------------------------------------------------------
+let byteTrackAnim = null;
+let isByteTrackPlaying = true;
+let trackObjects = [
+    { id: 104, type: "CAR", x: 60, y: 130, w: 90, h: 55, speed: 2.2, color: "#10b981", heading: "EAST" },
+    { id: 107, type: "BUS", x: 220, y: 70, w: 140, h: 80, speed: 1.4, color: "#3b82f6", heading: "EAST" },
+    { id: 109, type: "MOTORCYCLE", x: 380, y: 170, w: 45, h: 40, speed: 2.8, color: "#ef4444", heading: "NORTH_EAST" }
+];
+
+function startByteTrackSim() {
+    const canvas = document.getElementById('trackCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = 460;
+    const h = canvas.height = 260;
+
+    function loop() {
+        ctx.fillStyle = '#060a14';
+        ctx.fillRect(0, 0, w, h);
+
+        // Highway Lanes
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 60); ctx.lineTo(w, 60);
+        ctx.moveTo(0, 150); ctx.lineTo(w, 150);
+        ctx.moveTo(0, 240); ctx.lineTo(w, 240);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#334155';
+        ctx.setLineDash([12, 12]);
+        ctx.beginPath();
+        ctx.moveTo(0, 105); ctx.lineTo(w, 105);
+        ctx.moveTo(0, 195); ctx.lineTo(w, 195);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (isByteTrackPlaying) {
+            trackObjects.forEach(v => {
+                v.x += v.speed;
+                if (v.x > w + 40) v.x = -v.w - 20;
+            });
+        }
+
+        let log = `=== [BYTETRACK MULTI-CAMERA TRAJECTORY LOG] ===
+`;
+        log += `Association Mode:  Kalman Filter + Hungarian IoU
+`;
+        log += `Active Trackers:   ${trackObjects.length} Persistent IDs
+
+`;
+
+        trackObjects.forEach((v, idx) => {
+            // Draw Box
+            ctx.fillStyle = v.color + '22';
+            ctx.fillRect(v.x, v.y, v.w, v.h);
+            ctx.strokeStyle = v.color;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(v.x, v.y, v.w, v.h);
+
+            // Trajectory Trail
+            ctx.strokeStyle = v.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(v.x, v.y + v.h/2);
+            ctx.lineTo(v.x - 35, v.y + v.h/2);
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = v.color;
+            ctx.font = 'bold 10px JetBrains Mono, monospace';
+            ctx.fillText(`TRACK #${v.id} [${v.type}]`, v.x + 2, v.y - 6);
+
+            const speedKmph = (v.speed * 22).toFixed(1);
+            log += `[TRACK #${v.id}] ${v.type.padEnd(10)} | Speed: ${speedKmph.padStart(4)} km/h | Heading: ${v.heading.padEnd(10)} | Center: (${Math.round(v.x+v.w/2)}, ${Math.round(v.y+v.h/2)})
+`;
+        });
+
+        document.getElementById('trackOutputLog').textContent = log;
+        document.getElementById('trackActiveCount').textContent = `ACTIVE: ${trackObjects.length}`;
+
+        byteTrackAnim = requestAnimationFrame(loop);
+    }
+
+    if (byteTrackAnim) cancelAnimationFrame(byteTrackAnim);
+    byteTrackAnim = requestAnimationFrame(loop);
+}
+
+function toggleByteTrackLoop() {
+    isByteTrackPlaying = !isByteTrackPlaying;
+    document.getElementById('btnByteTrackPlay').textContent = isByteTrackPlaying ? '⏸ Pause Motion' : '▶ Resume Motion';
+}
+
+function spawnTrackVehicle() {
+    const types = ["CAR", "SUV", "VAN", "BIKE"];
+    const colors = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7"];
+    const newId = 110 + trackObjects.length;
+    const t = types[Math.floor(Math.random() * types.length)];
+    const c = colors[Math.floor(Math.random() * colors.length)];
+    trackObjects.push({
+        id: newId, type: t, x: -60, y: 70 + Math.random() * 120, w: 75, h: 50,
+        speed: 1.5 + Math.random() * 1.5, color: c, heading: "EAST"
+    });
+}
+
+function resetByteTracker() {
+    trackObjects = [
+        { id: 104, type: "CAR", x: 60, y: 130, w: 90, h: 55, speed: 2.2, color: "#10b981", heading: "EAST" },
+        { id: 107, type: "BUS", x: 220, y: 70, w: 140, h: 80, speed: 1.4, color: "#3b82f6", heading: "EAST" },
+        { id: 109, type: "MOTORCYCLE", x: 380, y: 170, w: 45, h: 40, speed: 2.8, color: "#ef4444", heading: "NORTH_EAST" }
+    ];
+}
+
+// -------------------------------------------------------------------------
+// MODEL 3: Two-Stage ANPR & Gujarat RTO
+// -------------------------------------------------------------------------
+const gujaratRtoDict = {
+    "01": { district: "Ahmedabad City", rto: "Subhash Bridge RTO" },
+    "02": { district: "Mehsana", rto: "Mehsana District RTO" },
+    "03": { district: "Rajkot", rto: "Rajkot Central RTO" },
+    "04": { district: "Bhavnagar", rto: "Bhavnagar RTO" },
+    "05": { district: "Surat", rto: "Surat City RTO" },
+    "06": { district: "Vadodara", rto: "Vadodara Central RTO" },
+    "07": { district: "Kheda / Nadiad", rto: "Nadiad RTO" },
+    "08": { district: "Banaskantha", rto: "Palanpur RTO" },
+    "09": { district: "Sabar Kantha", rto: "Himmatnagar RTO" },
+    "10": { district: "Jamnagar", rto: "Jamnagar RTO" },
+    "11": { district: "Junagadh", rto: "Junagadh RTO" },
+    "12": { district: "Kutch", rto: "Bhuj / Gandhidham RTO" },
+    "18": { district: "Gandhinagar", rto: "Gandhinagar Capital RTO" },
+    "21": { district: "Navsari", rto: "Navsari Coastal RTO" },
+    "24": { district: "Patan", rto: "Patan RTO" },
+    "32": { district: "Gir Somnath", rto: "Veraval NH-51 RTO" }
+};
+
+function setAnprPlate(p) {
+    document.getElementById('anprInputPlate').value = p;
+    runAnprScan();
+}
+
+function runAnprScan() {
+    const raw = (document.getElementById('anprInputPlate').value || 'GJ01AB1234').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    document.getElementById('plateVisualText').textContent = raw.match(/.{1,2}/g)?.join(' ') || raw;
+
+    let isGj = raw.startsWith('GJ');
+    let rtoCode = raw.substring(2, 4);
+    let rtoInfo = gujaratRtoDict[rtoCode] || (isGj ? { district: "Gujarat State", rto: `GJ-${rtoCode} Regional Office` } : { district: "Out-of-State Vehicle", rto: "Non-Gujarat Jurisdiction" });
+
+    const isWatchlist = raw.includes("9921") || raw.includes("1234");
+    const badge = document.getElementById('anprStatusBadge');
+    if (isWatchlist) {
+        badge.textContent = "🚨 SUSPECT HOTLIST HIT";
+        badge.style.color = "#ef4444";
+    } else {
+        badge.textContent = "✅ VERIFIED CLEAN";
+        badge.style.color = "#10b981";
+    }
+
+    let out = `=== [TWO-STAGE ANPR & GUJARAT RTO EXTRACTION] ===
+`;
+    out += `Raw OCR Text:         '${raw}'
+`;
+    out += `Normalized String:    '${raw}' (Confidence: 96.8%)
+`;
+    out += `State Jurisdiction:   ${isGj ? 'GUJARAT STATE (GJ)' : 'OUT-OF-STATE REGISTRATION'}
+`;
+    out += `RTO District:         ${rtoInfo.district}
+`;
+    out += `Authority Office:     ${rtoInfo.rto}
+`;
+    out += `Watchlist Status:     ${isWatchlist ? '🚨 HIGH-PRIORITY INTERCEPT ALERT' : 'Normal / No active flags'}
+
+`;
+    out += `Tactical Directive:   ${isWatchlist ? 'Broadcasting sighting to nearest PCR vans & toll plaza barriers.' : 'Logged to surveillance telemetry database.'}`;
+
+    document.getElementById('anprOutputResult').textContent = out;
+}
+
+// -------------------------------------------------------------------------
+// MODEL 4: FastReID Cross-Camera Matching
+// -------------------------------------------------------------------------
+function runReidMatch() {
+    const target = document.getElementById('reidTargetSelect').value;
+    const desc = document.getElementById('reidSignatureDesc');
+    
+    let targetName = "Suspect Alpha";
+    if (target === "vehicle_scorpio") targetName = "Black Scorpio SUV";
+    if (target === "person_blue") targetName = "Suspect Charlie (Blue Denim)";
+
+    desc.innerHTML = `Target: <b>${targetName}</b><br>Embedding Dimension: <b>512-dim Normalized Vector</b><br>Camera Network: <b>30 Sentinel Gujarat Nodes Active</b>`;
+
+    let out = `=== [FAST-REID CROSS-CAMERA EMBEDDING COMPARISON] ===
+`;
+    out += `Query Signature:   512-dim visual vector for [${targetName}]
+`;
+    out += `Metric:            Cosine Distance Similarity (Threshold >= 0.70)
+
+`;
+
+    out += `[RANK #1] 🎯 100.0% MATCH  | Camera: CAM_SEN_001 (Chiman Bhai Bridge, Ahmedabad)
+`;
+    out += `          Timestamp: 21:10:15 IST | Status: CONFIRMED SIGHTING
+`;
+    out += `          Vector Sim: 0.9982 | Evidence: /evidence/ahm_001_crop.jpg
+
+`;
+
+    out += `[RANK #2] 🎯  98.4% MATCH  | Camera: CAM_SEN_002 (Janpath Road Junction, Ahmedabad)
+`;
+    out += `          Timestamp: 21:14:30 IST | Status: CONFIRMED SIGHTING
+`;
+    out += `          Vector Sim: 0.9841 | Evidence: /evidence/ahm_002_crop.jpg
+
+`;
+
+    out += `[RANK #3] ⚠️  41.2% NO MATCH | Camera: CAM_SEN_017 (Central Bus Port, Rajkot)
+`;
+    out += `          Timestamp: 21:28:00 IST | Status: REJECTED (Below Similarity Threshold)
+`;
+    out += `          Vector Sim: 0.4120 | Evidence: /evidence/rjk_017_crop.jpg
+
+`;
+
+    out += `--> Result: Target trajectory correlated moving North along Ahmedabad Corridor.`;
+    document.getElementById('reidOutputResults').textContent = out;
+}
+
+// -------------------------------------------------------------------------
+// MODEL 5: Contextual VLM Scene Analyzer
+// -------------------------------------------------------------------------
+function setVlmPrompt(p) {
+    document.getElementById('vlmContextInput').value = p;
+    runVlmAnalysis();
+}
+
+function runVlmAnalysis() {
+    const prompt = document.getElementById('vlmContextInput').value || 'Surveillance scene review';
+    let isHighThreat = prompt.toLowerCase().includes('curfew') || prompt.toLowerCase().includes('hit-and-run') || prompt.toLowerCase().includes('concealed');
+
+    const badge = document.getElementById('vlmThreatBadge');
+    badge.textContent = isHighThreat ? 'THREAT: HIGH (92%)' : 'THREAT: LOW (95%)';
+    badge.style.color = isHighThreat ? '#ef4444' : '#10b981';
+
+    let out = `=== [CONTEXTUAL VISION-LANGUAGE INCIDENT ASSESSMENT] ===
+`;
+    out += `Incident Category:    ${isHighThreat ? 'PERIMETER_SECURITY_VIOLATION' : 'ROUTINE_TRAFFIC_FLOW'}
+`;
+    out += `Threat Level:         ${isHighThreat ? 'CRITICAL / HIGH-RISK' : 'NORMAL'}
+`;
+    out += `Confidence Score:     92.6%
+
+`;
+    out += `[TACTICAL SITUATION SUMMARY]:
+`;
+    out += `VLM analysis evaluated camera keyframe against contextual incident parameters: "${prompt}".
+`;
+    out += `Visual telemetry identifies anomaly corresponding to high-velocity movement during restricted sector window.
+
+`;
+    out += `Recommended Protocol: Dispatch patrol interceptor and capture high-resolution plate snapshot.`;
+
+    document.getElementById('vlmOutputBrief').textContent = out;
+}
+
+// -------------------------------------------------------------------------
+// MODEL 6: Police Copilot Agent
+// -------------------------------------------------------------------------
+function setCopilotQuery(q) {
+    document.getElementById('copilotQueryInput').value = q;
+    runCopilotInvestigation();
+}
+
+function runCopilotInvestigation() {
+    const query = document.getElementById('copilotQueryInput').value || 'Locate suspect';
+
+    let out = `=== [POLICE COPILOT AUTONOMOUS INVESTIGATION AGENT] ===
+`;
+    out += `Officer Query:       "${query}"
+`;
+    out += `Intent Detected:     VEHICLE_INCIDENT_CORRELATION
+`;
+    out += `Extracted Filters:   { 'vehicle': 'Scorpio/Sedan', 'district': 'Ahmedabad', 'plate': 'GJ-01-XX-9921' }
+`;
+    out += `Confidence Score:    94.5%
+
+`;
+    out += `[CORRELATED MOVEMENT TIMELINE]:
+`;
+    out += `  • 21:10:00 IST - Sighting at CAM_SEN_001 (Chiman Bhai Bridge Corridor) | Speed: 42 km/h
+`;
+    out += `  • 21:14:30 IST - Sighting at CAM_SEN_002 (Janpath Road Junction)      | Speed: 38 km/h
+`;
+    out += `  • 21:20:15 IST - Sighting at CAM_SEN_005 (Visat Teen Rasta Circle)    | Speed: 55 km/h
+`;
+    out += `  • 21:23:40 IST - Predicted Trajectory -> Adalaj Tollnaka (Gandhinagar Gateway)
+
+`;
+    out += `[TACTICAL ACTION ORDERS]:
+`;
+    out += `  1. 🚨 Alert Gandhinagar & Sanand Toll Plazas to lower security barriers for plate GJ-01-XX-9921.
+`;
+    out += `  2. 🚓 Dispatch Sabarmati PCR Mobile Unit #4 to intercept along SG Highway North axis.
+`;
+    out += `  3. 📹 Lock pan-tilt-zoom surveillance focus on CAM_SEN_012 (Adalaj Expressway).`;
+
+    document.getElementById('copilotOutputPlan').textContent = out;
+}
+
+
+window.onload = initMap;
+</script>
+</body>
+</html>

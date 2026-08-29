@@ -293,3 +293,32 @@ async def update_investigation_status(
         data=IncidentResponse.model_validate(updated),
         request_id=getattr(request.state, "request_id", None),
     )
+
+
+from pydantic import BaseModel, Field
+from app.ai.agents import get_global_copilot_agent, CopilotInvestigationResponse
+
+class CopilotQueryRequest(BaseModel):
+    query: str = Field(..., example="Find the red Swift involved in the robbery near Ahmedabad between 8 PM and 10 PM")
+
+
+@router.post(
+    "/copilot/query",
+    response_model=ApiResponse[Dict[str, Any]],
+    summary="Police Copilot AI Natural Language Investigation",
+    description="Translates officer queries into structured tools (Plate, Vehicle, GIS, Evidence) and returns evidence-backed findings.",
+)
+async def query_police_copilot(
+    payload: CopilotQueryRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    principal: Principal = Depends(require_investigation),
+) -> ApiResponse[Dict[str, Any]]:
+    agent = get_global_copilot_agent()
+    result = await agent.investigate(db, query=payload.query, officer_id=str(principal.user_id))
+    return ApiResponse(
+        success=True,
+        data=result.__dict__,
+        request_id=getattr(request.state, "request_id", None),
+    )
+
